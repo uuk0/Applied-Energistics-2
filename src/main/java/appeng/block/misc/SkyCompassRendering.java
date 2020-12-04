@@ -18,22 +18,20 @@
 
 package appeng.block.misc;
 
-
-import appeng.bootstrap.*;
-import appeng.client.render.tesr.SkyCompassTESR;
-import appeng.tile.misc.TileSkyCompass;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 
+import appeng.bootstrap.TileEntityRendering;
+import appeng.bootstrap.TileEntityRenderingCustomizer;
+import appeng.client.render.tesr.SkyCompassTESR;
+import appeng.tile.misc.SkyCompassTileEntity;
 
+public class SkyCompassRendering extends TileEntityRenderingCustomizer<SkyCompassTileEntity> {
 
-public class SkyCompassRendering extends TileEntityRenderingCustomizer<TileSkyCompass>
-{
-
-	@Override
-	@OnlyIn( Dist.CLIENT )
-	public void customize(TileEntityRendering<TileSkyCompass> rendering) {
-		rendering.tileEntityRenderer( SkyCompassTESR::new );
-	}
+    @Override
+    @OnlyIn(Dist.CLIENT)
+    public void customize(TileEntityRendering<SkyCompassTileEntity> rendering) {
+        rendering.tileEntityRenderer(SkyCompassTESR::new);
+    }
 
 }

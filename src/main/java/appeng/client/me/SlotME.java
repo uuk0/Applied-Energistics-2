@@ -18,82 +18,70 @@
 
 package appeng.client.me;
 
-
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.inventory.IInventory;
+import net.minecraft.inventory.Inventory;
+import net.minecraft.inventory.container.Slot;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.items.SlotItemHandler;
 
 import appeng.api.storage.data.IAEItemStack;
 
+public class SlotME extends Slot {
 
-public class SlotME extends SlotItemHandler
-{
+    private static final IInventory EMPTY_INVENTORY = new Inventory(0);
 
-	private final InternalSlotME mySlot;
+    private final InternalSlotME slot;
 
-	public SlotME( final InternalSlotME me )
-	{
-		super( null, 0, me.getxPosition(), me.getyPosition() );
-		this.mySlot = me;
-	}
+    public SlotME(final InternalSlotME slot) {
+        super(EMPTY_INVENTORY, 0, slot.getxPosition(), slot.getyPosition());
+        this.slot = slot;
+    }
 
-	public IAEItemStack getAEStack()
-	{
-		if( this.mySlot.hasPower() )
-		{
-			return this.mySlot.getAEStack();
-		}
-		return null;
-	}
+    public IAEItemStack getAEStack() {
+        if (this.slot.hasPower()) {
+            return this.slot.getAEStack();
+        }
+        return null;
+    }
 
-	@Override
-	public boolean isItemValid( final ItemStack par1ItemStack )
-	{
-		return false;
-	}
+    @Override
+    public boolean isItemValid(final ItemStack par1ItemStack) {
+        return false;
+    }
 
-	@Override
-	public ItemStack getStack()
-	{
-		if( this.mySlot.hasPower() )
-		{
-			return this.mySlot.getStack();
-		}
-		return ItemStack.EMPTY;
-	}
+    @Override
+    public ItemStack getStack() {
+        if (this.slot.hasPower()) {
+            return this.slot.getStack();
+        }
+        return ItemStack.EMPTY;
+    }
 
-	@Override
-	public boolean getHasStack()
-	{
-		if( this.mySlot.hasPower() )
-		{
-			return !this.getStack().isEmpty();
-		}
-		return false;
-	}
+    @Override
+    public boolean getHasStack() {
+        if (this.slot.hasPower()) {
+            return !this.getStack().isEmpty();
+        }
+        return false;
+    }
 
-	@Override
-	public void putStack( final ItemStack par1ItemStack )
-	{
+    @Override
+    public void putStack(final ItemStack par1ItemStack) {
 
-	}
+    }
 
-	@Override
-	public int getSlotStackLimit()
-	{
-		return 0;
-	}
+    @Override
+    public int getSlotStackLimit() {
+        return 0;
+    }
 
-	@Override
-	public ItemStack decrStackSize( final int par1 )
-	{
-		return ItemStack.EMPTY;
-	}
+    @Override
+    public ItemStack decrStackSize(final int par1) {
+        return ItemStack.EMPTY;
+    }
 
-	@Override
-	public boolean canTakeStack( final PlayerEntity par1PlayerEntity )
-	{
-		return false;
-	}
+    @Override
+    public boolean canTakeStack(final PlayerEntity par1PlayerEntity) {
+        return false;
+    }
 }

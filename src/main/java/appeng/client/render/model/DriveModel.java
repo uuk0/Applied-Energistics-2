@@ -18,80 +18,63 @@
 
 package appeng.client.render.model;
 
-
 import java.util.Collection;
-import java.util.Collections;
-import java.util.EnumMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.function.Function;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
-import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.model.IBakedModel;
+import net.minecraft.client.renderer.model.IModelTransform;
+import net.minecraft.client.renderer.model.ItemOverrideList;
+import net.minecraft.client.renderer.model.ModelBakery;
+import net.minecraft.client.renderer.model.RenderMaterial;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.renderer.vertex.VertexFormat;
+import net.minecraft.item.Item;
+import net.minecraft.item.Items;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.client.model.IModel;
-import net.minecraftforge.client.model.ModelLoaderRegistry;
-import net.minecraftforge.common.model.IModelState;
-import net.minecraftforge.common.model.TRSRTransformation;
+import net.minecraftforge.client.model.IModelConfiguration;
 
-import appeng.block.storage.DriveSlotState;
+import appeng.api.client.ICellModelRegistry;
+import appeng.client.render.BasicUnbakedModel;
+import appeng.core.Api;
+import appeng.core.api.client.ApiCellModelRegistry;
 
+public class DriveModel implements BasicUnbakedModel<DriveModel> {
 
-public class DriveModel implements IModel
-{
+    private static final ResourceLocation MODEL_BASE = new ResourceLocation(
+            "appliedenergistics2:block/drive/drive_base");
+    private static final ResourceLocation MODEL_CELL_EMPTY = new ResourceLocation(
+            "appliedenergistics2:block/drive/drive_cell_empty");
 
-	private static final ResourceLocation MODEL_BASE = new ResourceLocation( "appliedenergistics2:block/drive_base" );
+    @Override
+    public IBakedModel bake(IModelConfiguration owner, ModelBakery bakery,
+            Function<RenderMaterial, TextureAtlasSprite> spriteGetter, IModelTransform modelTransform,
+            ItemOverrideList overrides, ResourceLocation modelLocation) {
+        final ICellModelRegistry cellRegistry = Api.instance().client().cells();
+        final Map<Item, IBakedModel> cellModels = new IdentityHashMap<>();
 
-	private static final Map<DriveSlotState, ResourceLocation> MODELS_CELLS = ImmutableMap.of(
-			DriveSlotState.EMPTY, new ResourceLocation( "appliedenergistics2:block/drive_cell_empty" ),
-			DriveSlotState.OFFLINE, new ResourceLocation( "appliedenergistics2:block/drive_cell_off" ),
-			DriveSlotState.ONLINE, new ResourceLocation( "appliedenergistics2:block/drive_cell_on" ),
-			DriveSlotState.TYPES_FULL, new ResourceLocation( "appliedenergistics2:block/drive_cell_types_full" ),
-			DriveSlotState.FULL, new ResourceLocation( "appliedenergistics2:block/drive_cell_full" ) );
+        // Load the base model and the model for each cell model.
+        for (Entry<Item, ResourceLocation> entry : cellRegistry.models().entrySet()) {
+            IBakedModel cellModel = bakery.getBakedModel(entry.getValue(), modelTransform, spriteGetter);
+            cellModels.put(entry.getKey(), cellModel);
+        }
 
-	@Override
-	public Collection<ResourceLocation> getDependencies()
-	{
-		return ImmutableList.<ResourceLocation>builder().add( MODEL_BASE ).addAll( MODELS_CELLS.values() ).build();
-	}
+        final IBakedModel baseModel = bakery.getBakedModel(MODEL_BASE, modelTransform, spriteGetter);
+        final IBakedModel defaultCell = bakery.getBakedModel(cellRegistry.getDefaultModel(), modelTransform,
+                spriteGetter);
+        cellModels.put(Items.AIR, bakery.getBakedModel(MODEL_CELL_EMPTY, modelTransform, spriteGetter));
 
-	@Override
-	public Collection<ResourceLocation> getTextures()
-	{
-		return Collections.emptyList();
-	}
+        return new DriveBakedModel(baseModel, cellModels, defaultCell);
+    }
 
-	@Override
-	public IBakedModel bake( IModelState state, VertexFormat format, Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter )
-	{
-		EnumMap<DriveSlotState, IBakedModel> cellModels = new EnumMap<>( DriveSlotState.class );
+    @Override
+    public Collection<ResourceLocation> getModelDependencies() {
+        ICellModelRegistry cells = Api.instance().client().cells();
+        return ImmutableSet.<ResourceLocation>builder().add(cells.getDefaultModel())
+                .addAll(ApiCellModelRegistry.getModels()).addAll(cells.models().values()).build();
+    }
 
-		// Load the base model and the model for each cell state.
-		IModel baseModel;
-		try
-		{
-			baseModel = ModelLoaderRegistry.getModel( MODEL_BASE );
-			for( DriveSlotState slotState : MODELS_CELLS.keySet() )
-			{
-				IModel model = ModelLoaderRegistry.getModel( MODELS_CELLS.get( slotState ) );
-				cellModels.put( slotState, model.bake( state, format, bakedTextureGetter ) );
-			}
-		}
-		catch( Exception e )
-		{
-			throw new RuntimeException( e );
-		}
-
-		IBakedModel bakedBase = baseModel.bake( state, format, bakedTextureGetter );
-		return new DriveBakedModel( bakedBase, cellModels );
-	}
-
-	@Override
-	public IModelState getDefaultState()
-	{
-		return TRSRTransformation.identity();
-	}
 }

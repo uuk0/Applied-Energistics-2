@@ -18,7 +18,6 @@
 
 package appeng.util.item;
 
-
 import java.util.Objects;
 
 import com.google.common.base.Preconditions;
@@ -29,244 +28,162 @@ import net.minecraft.nbt.CompoundNBT;
 
 import appeng.api.config.FuzzyMode;
 
+final class AESharedItemStack implements Comparable<AESharedItemStack> {
 
-final class AESharedItemStack implements Comparable<AESharedItemStack>
-{
-	private static final CompoundNBT LOW_TAG = new CompoundNBT();
-	private static final CompoundNBT HIGH_TAG = new CompoundNBT();
+    private final ItemStack itemStack;
+    private final int itemId;
+    private final int itemDamage;
+    private final int hashCode;
 
-	private final ItemStack itemStack;
-	private final int itemId;
-	private final int itemDamage;
-	private final int hashCode;
+    public AESharedItemStack(final ItemStack itemStack) {
+        this.itemStack = itemStack;
+        this.itemId = Item.getIdFromItem(itemStack.getItem());
+        this.itemDamage = itemStack.getDamage();
+        this.hashCode = this.makeHashCode();
+    }
 
-	public AESharedItemStack( final ItemStack itemStack )
-	{
-		this.itemStack = itemStack;
-		this.itemId = Item.getIdFromItem( itemStack.getItem() );
-		this.itemDamage = itemStack.getDamage();
-		this.hashCode = this.makeHashCode();
-	}
+    Bounds getBounds(final FuzzyMode fuzzy) {
+        return new Bounds(this.itemStack, fuzzy);
+    }
 
-	Bounds getBounds( final FuzzyMode fuzzy, final boolean ignoreMeta )
-	{
-		return new Bounds( this.itemStack, fuzzy, ignoreMeta );
-	}
+    ItemStack getDefinition() {
+        return this.itemStack;
+    }
 
-	ItemStack getDefinition()
-	{
-		return this.itemStack;
-	}
+    int getItemDamage() {
+        return this.itemDamage;
+    }
 
-	int getItemDamage()
-	{
-		return this.itemDamage;
-	}
+    int getItemID() {
+        return this.itemId;
+    }
 
-	int getItemID()
-	{
-		return this.itemId;
-	}
+    @Override
+    public int hashCode() {
+        return this.hashCode;
+    }
 
-	@Override
-	public int hashCode()
-	{
-		return this.hashCode;
-	}
+    @Override
+    public boolean equals(final Object obj) {
+        if (obj instanceof AESharedItemStack) {
+            final AESharedItemStack other = (AESharedItemStack) obj;
 
-	@Override
-	public boolean equals( final Object obj )
-	{
-		if( obj instanceof AESharedItemStack )
-		{
-			final AESharedItemStack other = (AESharedItemStack) obj;
+            Preconditions.checkState(this.itemStack.getCount() == 1, "ItemStack#getCount() has to be 1");
+            Preconditions.checkArgument(other.getDefinition().getCount() == 1, "ItemStack#getCount() has to be 1");
 
-			Preconditions.checkState( this.itemStack.getCount() == 1, "ItemStack#getCount() has to be 1" );
-			Preconditions.checkArgument( other.getDefinition().getCount() == 1, "ItemStack#getCount() has to be 1" );
+            if (this.itemStack == other.itemStack) {
+                return true;
+            }
+            return ItemStack.areItemStacksEqual(this.itemStack, other.itemStack);
+        }
+        return false;
+    }
 
-			if( this.itemStack == other.itemStack )
-			{
-				return true;
-			}
-			return ItemStack.areItemStacksEqual( this.itemStack, other.itemStack );
-		}
-		return false;
-	}
+    @Override
+    public int compareTo(final AESharedItemStack b) {
+        Preconditions.checkState(this.itemStack.getCount() == 1, "ItemStack#getCount() has to be 1");
+        Preconditions.checkArgument(b.getDefinition().getCount() == 1, "ItemStack#getCount() has to be 1");
 
-	@Override
-	public int compareTo( final AESharedItemStack b )
-	{
-		Preconditions.checkState( this.itemStack.getCount() == 1, "ItemStack#getCount() has to be 1" );
-		Preconditions.checkArgument( b.getDefinition().getCount() == 1, "ItemStack#getCount() has to be 1" );
+        if (this.itemStack == b.getDefinition()) {
+            return 0;
+        }
 
-		if( this.itemStack == b.getDefinition() )
-		{
-			return 0;
-		}
+        final int id = this.itemId - b.itemId;
+        if (id != 0) {
+            return id;
+        }
 
-		final int id = this.itemId - b.itemId;
-		if( id != 0 )
-		{
-			return id;
-		}
+        final int damageValue = this.itemDamage - b.itemDamage;
+        if (damageValue != 0) {
+            return damageValue;
+        }
 
-		final int damageValue = this.itemDamage - b.itemDamage;
-		if( damageValue != 0 )
-		{
-			return damageValue;
-		}
+        return System.identityHashCode(this.getDefinition().getTag())
+                - System.identityHashCode(b.getDefinition().getTag());
+    }
 
-		final int nbt = this.compareNBT( b.getDefinition() );
-		if( nbt != 0 )
-		{
-			return nbt;
-		}
+    private int makeHashCode() {
+        return Objects.hash(this.itemId, this.itemDamage, this.itemStack.hasTag() ? this.itemStack.getTag() : 0);
+    }
 
-		if( !this.itemStack.areCapsCompatible( b.getDefinition() ) )
-		{
-			return System.identityHashCode( this.itemStack ) - System.identityHashCode( b.getDefinition() );
-		}
-		return 0;
-	}
+    /**
+     * Creates the lower and upper bounds for a specific shared itemstack.
+     */
+    public static final class Bounds {
+        /**
+         * Bounds enforced by {@link ItemStack#isEmpty()}
+         */
+        private static final int MIN_DAMAGE_VALUE = 0;
+        private static final int MAX_DAMAGE_VALUE = Short.MAX_VALUE;
 
-	private int compareNBT( final ItemStack b )
-	{
-		if( this.itemStack.getTag() == b.getTag() )
-		{
-			return 0;
-		}
-		if( this.itemStack.getTag() == LOW_TAG || b.getTag() == HIGH_TAG )
-		{
-			return -1;
-		}
-		if( this.itemStack.getTag() == HIGH_TAG || b.getTag() == LOW_TAG )
-		{
-			return 1;
-		}
-		return System.identityHashCode( this.itemStack.getTag() ) - System.identityHashCode( b.getTag() );
-	}
+        private final AESharedItemStack lower;
+        private final AESharedItemStack upper;
 
-	private int makeHashCode()
-	{
-		return Objects.hash( this.itemId, this.itemDamage, this.itemStack.hasTag() ? this.itemStack.getTag() : 0 );
-	}
+        public Bounds(final ItemStack stack, final FuzzyMode fuzzy) {
+            Preconditions.checkState(!stack.isEmpty(), "ItemStack#isEmpty() has to be false");
+            Preconditions.checkState(stack.getCount() == 1, "ItemStack#getCount() has to be 1");
 
-	/**
-	 * Creates the lower and upper bounds for a specific shared itemstack.
-	 */
-	public static final class Bounds
-	{
-		/**
-		 * Bounds enforced by {@link ItemStack#isEmpty()}
-		 */
-		private static final int MIN_DAMAGE_VALUE = 0;
-		private static final int MAX_DAMAGE_VALUE = 65535;
+            final CompoundNBT tag = stack.hasTag() ? stack.getTag() : null;
 
-		private final AESharedItemStack lower;
-		private final AESharedItemStack upper;
+            this.lower = this.makeLowerBound(stack, tag, fuzzy);
+            this.upper = this.makeUpperBound(stack, tag, fuzzy);
+        }
 
-		public Bounds( final ItemStack stack, final FuzzyMode fuzzy, final boolean ignoreMeta )
-		{
-			Preconditions.checkState( !stack.isEmpty(), "ItemStack#isEmpty() has to be false" );
-			Preconditions.checkState( stack.getCount() == 1, "ItemStack#getCount() has to be 1" );
+        public AESharedItemStack lower() {
+            return this.lower;
+        }
 
-			final CompoundNBT tag = stack.hasTag() ? stack.getTag() : null;
+        public AESharedItemStack upper() {
+            return this.upper;
+        }
 
-			this.lower = this.makeLowerBound( stack, tag, fuzzy, ignoreMeta );
-			this.upper = this.makeUpperBound( stack, tag, fuzzy, ignoreMeta );
-		}
+        private AESharedItemStack makeLowerBound(final ItemStack itemStack, final CompoundNBT tag,
+                final FuzzyMode fuzzy) {
+            final ItemStack newDef = itemStack.copy();
 
-		public AESharedItemStack lower()
-		{
-			return this.lower;
-		}
+            if (newDef.getItem().isDamageable()) {
+                if (fuzzy == FuzzyMode.IGNORE_ALL) {
+                    newDef.setDamage(MIN_DAMAGE_VALUE);
+                } else if (fuzzy == FuzzyMode.PERCENT_99) {
+                    if (itemStack.getDamage() == MIN_DAMAGE_VALUE) {
+                        newDef.setDamage(MIN_DAMAGE_VALUE);
+                    } else {
+                        newDef.setDamage(MIN_DAMAGE_VALUE + 1);
+                    }
+                } else {
+                    final int breakpoint = fuzzy.calculateBreakPoint(itemStack.getMaxDamage());
+                    final int damage = breakpoint <= itemStack.getDamage() ? breakpoint : 0;
+                    newDef.setDamage(damage);
+                }
+            }
 
-		public AESharedItemStack upper()
-		{
-			return this.upper;
-		}
+            return new AESharedItemStack(newDef);
+        }
 
-		private AESharedItemStack makeLowerBound( final ItemStack itemStack, final CompoundNBT tag, final FuzzyMode fuzzy, final boolean ignoreMeta )
-		{
-			final ItemStack newDef = itemStack.copy();
+        private AESharedItemStack makeUpperBound(final ItemStack itemStack, final CompoundNBT tag,
+                final FuzzyMode fuzzy) {
+            final ItemStack newDef = itemStack.copy();
 
-			if( ignoreMeta )
-			{
-				newDef.setDamage( MIN_DAMAGE_VALUE );
-				newDef.setTag( tag );
-			}
-			else
-			{
-				if( newDef.getItem().isDamageable() )
-				{
-					if( fuzzy == FuzzyMode.IGNORE_ALL )
-					{
-						newDef.setDamage( MIN_DAMAGE_VALUE );
-					}
-					else if( fuzzy == FuzzyMode.PERCENT_99 )
-					{
-						if( itemStack.getDamage() == MIN_DAMAGE_VALUE )
-						{
-							newDef.setDamage( MIN_DAMAGE_VALUE );
-						}
-						else
-						{
-							newDef.setDamage( MIN_DAMAGE_VALUE + 1 );
-						}
-					}
-					else
-					{
-						final int breakpoint = fuzzy.calculateBreakPoint( itemStack.getMaxDamage() );
-						final int damage = breakpoint <= itemStack.getDamage() ? breakpoint : 0;
-						newDef.setDamage( damage );
-					}
-				}
-				newDef.setTag( LOW_TAG );
-			}
+            if (newDef.getItem().isDamageable()) {
+                if (fuzzy == FuzzyMode.IGNORE_ALL) {
+                    newDef.setDamage(itemStack.getMaxDamage() + 1);
+                } else if (fuzzy == FuzzyMode.PERCENT_99) {
+                    if (itemStack.getDamage() == MIN_DAMAGE_VALUE) {
+                        newDef.setDamage(MIN_DAMAGE_VALUE);
+                    } else {
+                        newDef.setDamage(itemStack.getMaxDamage() + 1);
+                    }
+                } else {
+                    final int breakpoint = fuzzy.calculateBreakPoint(itemStack.getMaxDamage());
+                    final int damage = itemStack.getDamage() < breakpoint ? breakpoint - 1
+                            : itemStack.getMaxDamage() + 1;
+                    newDef.setDamage(damage);
+                }
+            }
 
-			return new AESharedItemStack( newDef );
-		}
+            return new AESharedItemStack(newDef);
+        }
 
-		private AESharedItemStack makeUpperBound( final ItemStack itemStack, final CompoundNBT tag, final FuzzyMode fuzzy, final boolean ignoreMeta )
-		{
-			final ItemStack newDef = itemStack.copy();
+    }
 
-			if( ignoreMeta )
-			{
-				newDef.setDamage( MAX_DAMAGE_VALUE );
-				newDef.setTag( tag );
-			}
-			else
-			{
-				if( newDef.getItem().isDamageable() )
-				{
-					if( fuzzy == FuzzyMode.IGNORE_ALL )
-					{
-						newDef.setDamage( itemStack.getMaxDamage() + 1 );
-					}
-					else if( fuzzy == FuzzyMode.PERCENT_99 )
-					{
-						if( itemStack.getDamage() == MIN_DAMAGE_VALUE )
-						{
-							newDef.setDamage( MIN_DAMAGE_VALUE );
-						}
-						else
-						{
-							newDef.setDamage( itemStack.getMaxDamage() + 1 );
-						}
-					}
-					else
-					{
-						final int breakpoint = fuzzy.calculateBreakPoint( itemStack.getMaxDamage() );
-						final int damage = itemStack.getDamage() < breakpoint ? breakpoint - 1 : itemStack.getMaxDamage() + 1;
-						newDef.setDamage( damage );
-					}
-				}
-				newDef.setTag( HIGH_TAG );
-			}
-
-			return new AESharedItemStack( newDef );
-		}
-
-	}
 }

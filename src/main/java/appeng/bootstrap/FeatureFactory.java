@@ -18,7 +18,6 @@
 
 package appeng.bootstrap;
 
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -30,138 +29,87 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import appeng.bootstrap.components.BuiltInModelComponent;
-import appeng.bootstrap.components.ModelOverrideComponent;
-import appeng.tile.AEBaseTile;
 import net.minecraft.block.Block;
 import net.minecraft.client.renderer.model.IBakedModel;
-import net.minecraft.client.renderer.model.IUnbakedModel;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityClassification;
 import net.minecraft.entity.EntityType;
 import net.minecraft.item.Item;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.world.World;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 
-import appeng.api.definitions.IItemDefinition;
-import appeng.api.util.AEColor;
-import appeng.api.util.AEColoredItemDefinition;
 import appeng.api.features.AEFeature;
-import appeng.core.features.ActivityState;
-import appeng.core.features.ColoredItemDefinition;
-import appeng.core.features.ItemStackSrc;
+import appeng.bootstrap.components.ModelOverrideComponent;
+import appeng.tile.AEBaseTileEntity;
 import appeng.util.Platform;
 
+public class FeatureFactory {
 
-public class FeatureFactory
-{
+    private final AEFeature[] defaultFeatures;
 
-	private final AEFeature[] defaultFeatures;
+    private final Map<Class<? extends IBootstrapComponent>, List<IBootstrapComponent>> bootstrapComponents;
 
-	private final Map<Class<? extends IBootstrapComponent>, List<IBootstrapComponent>> bootstrapComponents;
+    @OnlyIn(Dist.CLIENT)
+    private ModelOverrideComponent modelOverrideComponent;
 
-	@OnlyIn( Dist.CLIENT )
-	private ModelOverrideComponent modelOverrideComponent;
+    public FeatureFactory() {
+        this.defaultFeatures = new AEFeature[] { AEFeature.CORE };
+        this.bootstrapComponents = new HashMap<>();
 
-	@OnlyIn( Dist.CLIENT )
-	private BuiltInModelComponent builtInModelComponent;
+        if (Platform.hasClientClasses()) {
+            this.modelOverrideComponent = new ModelOverrideComponent();
+            this.addBootstrapComponent(this.modelOverrideComponent);
+        }
+    }
 
-	public FeatureFactory()
-	{
-		this.defaultFeatures = new AEFeature[] { AEFeature.CORE };
-		this.bootstrapComponents = new HashMap<>();
+    private FeatureFactory(FeatureFactory parent, AEFeature... defaultFeatures) {
+        this.defaultFeatures = defaultFeatures.clone();
+        this.bootstrapComponents = parent.bootstrapComponents;
+        if (Platform.hasClientClasses()) {
+            this.modelOverrideComponent = parent.modelOverrideComponent;
+        }
+    }
 
-		if( Platform.hasClientClasses() )
-		{
-			this.modelOverrideComponent = new ModelOverrideComponent();
-			this.addBootstrapComponent( this.modelOverrideComponent );
-			this.builtInModelComponent = new BuiltInModelComponent();
-			this.addBootstrapComponent( this.builtInModelComponent );
-		}
-	}
+    public IBlockBuilder block(String id, Supplier<Block> block) {
+        return new BlockDefinitionBuilder(this, id, block).features(this.defaultFeatures);
+    }
 
-	private FeatureFactory( FeatureFactory parent, AEFeature... defaultFeatures )
-	{
-		this.defaultFeatures = defaultFeatures.clone();
-		this.bootstrapComponents = parent.bootstrapComponents;
-		if( Platform.hasClientClasses() )
-		{
-			this.modelOverrideComponent = parent.modelOverrideComponent;
-			this.builtInModelComponent = parent.builtInModelComponent;
-		}
-	}
+    public IItemBuilder item(String id, Function<Item.Properties, Item> itemFactory) {
+        return new ItemDefinitionBuilder(this, id, itemFactory).features(this.defaultFeatures);
+    }
 
-	public IBlockBuilder block( String id, Supplier<Block> block )
-	{
-		return new BlockDefinitionBuilder( this, id, block ).features( this.defaultFeatures );
-	}
+    public <T extends Entity> EntityBuilder<T> entity(String id, EntityType.IFactory<T> factory,
+            EntityClassification classification) {
+        return new EntityBuilder<T>(this, id, factory, classification).features(this.defaultFeatures);
+    }
 
-	public IItemBuilder item( String id, Function<Item.Properties, Item> itemFactory )
-	{
-		return new ItemDefinitionBuilder( this, id, itemFactory ).features( this.defaultFeatures );
-	}
+    public <T extends AEBaseTileEntity> TileEntityBuilder<T> tileEntity(String id, Class<T> teClass,
+            Function<TileEntityType<T>, T> factory) {
+        return new TileEntityBuilder<>(this, id, teClass, factory).features(this.defaultFeatures);
+    }
 
-	public <T extends Entity> EntityBuilder<T> entity(String id, EntityType.IFactory<T> factory, EntityClassification classification)
-	{
-		return new EntityBuilder<T>( this, id, factory, classification ).features( this.defaultFeatures );
-	}
+    public FeatureFactory features(AEFeature... features) {
+        return new FeatureFactory(this, features);
+    }
 
-	public <T extends AEBaseTile> TileEntityBuilder<T> tileEntity(String id, Class<T> teClass, Function<TileEntityType<T>, T> factory)
-	{
-		return new TileEntityBuilder<>( this, id, teClass, factory ).features( this.defaultFeatures );
-	}
+    public void addBootstrapComponent(IBootstrapComponent component) {
+        Arrays.stream(component.getClass().getInterfaces()).filter(i -> IBootstrapComponent.class.isAssignableFrom(i))
+                .forEach(i -> this.addBootstrapComponent((Class<? extends IBootstrapComponent>) i, component));
+    }
 
-	public AEColoredItemDefinition colored( IItemDefinition target, int offset )
-	{
-		ColoredItemDefinition definition = new ColoredItemDefinition();
+    private <T extends IBootstrapComponent> void addBootstrapComponent(Class<? extends IBootstrapComponent> eventType,
+            T component) {
+        this.bootstrapComponents.computeIfAbsent(eventType, c -> new ArrayList<IBootstrapComponent>()).add(component);
+    }
 
-		target.maybeItem().ifPresent( targetItem ->
-		{
-			for( final AEColor color : AEColor.VALID_COLORS )
-			{
-				final ActivityState state = ActivityState.from( true );
+    @OnlyIn(Dist.CLIENT)
+    void addModelOverride(String resourcePath, BiFunction<ResourceLocation, IBakedModel, IBakedModel> customizer) {
+        this.modelOverrideComponent.addOverride(resourcePath, customizer);
+    }
 
-				definition.add( color, new ItemStackSrc( targetItem, state ) );
-			}
-		} );
-
-		return definition;
-	}
-
-	public FeatureFactory features( AEFeature... features )
-	{
-		return new FeatureFactory( this, features );
-	}
-
-	public void addBootstrapComponent( IBootstrapComponent component )
-	{
-		Arrays.stream( component.getClass().getInterfaces() )
-				.filter( i -> IBootstrapComponent.class.isAssignableFrom( i ) )
-				.forEach( i -> this.addBootstrapComponent( (Class<? extends IBootstrapComponent>) i, component ) );
-	}
-
-	private <T extends IBootstrapComponent> void addBootstrapComponent( Class<? extends IBootstrapComponent> eventType, T component )
-	{
-		this.bootstrapComponents.computeIfAbsent( eventType, c -> new ArrayList<IBootstrapComponent>() ).add( component );
-	}
-
-	@OnlyIn( Dist.CLIENT )
-	void addBuiltInModel( String path, IUnbakedModel model )
-	{
-		this.builtInModelComponent.addModel( path, model );
-	}
-
-	@OnlyIn( Dist.CLIENT )
-	void addModelOverride( String resourcePath, BiFunction<ResourceLocation, IBakedModel, IBakedModel> customizer )
-	{
-		this.modelOverrideComponent.addOverride( resourcePath, customizer );
-	}
-
-	public <T extends IBootstrapComponent> Iterator<T> getBootstrapComponents( Class<T> eventType )
-	{
-		return (Iterator<T>) this.bootstrapComponents.getOrDefault( eventType, Collections.emptyList() ).iterator();
-	}
+    public <T extends IBootstrapComponent> Iterator<T> getBootstrapComponents(Class<T> eventType) {
+        return (Iterator<T>) this.bootstrapComponents.getOrDefault(eventType, Collections.emptyList()).iterator();
+    }
 }

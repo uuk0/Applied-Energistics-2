@@ -18,53 +18,43 @@
 
 package appeng.client.render;
 
-
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Set;
 import java.util.function.Function;
-
-import com.mojang.datafixers.util.Pair;
 
 import net.minecraft.client.renderer.model.IBakedModel;
 import net.minecraft.client.renderer.model.IModelTransform;
-import net.minecraft.client.renderer.model.IUnbakedModel;
-import net.minecraft.client.renderer.model.Material;
+import net.minecraft.client.renderer.model.ItemOverrideList;
 import net.minecraft.client.renderer.model.ModelBakery;
+import net.minecraft.client.renderer.model.RenderMaterial;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.client.model.IModelConfiguration;
 
 import appeng.client.render.cablebus.FacadeBuilder;
 import appeng.core.AppEng;
 
-
 /**
- * The model class for facades. Since facades wrap existing models, they don't declare any dependencies here other
- * than the cable anchor.
+ * The model class for facades. Since facades wrap existing models, they don't declare any dependencies here other than
+ * the cable anchor.
  */
-public class FacadeItemModel implements IUnbakedModel
-{
-	// We use this to get the default item transforms and make our lives easier
-	private static final ResourceLocation MODEL_BASE = new ResourceLocation( AppEng.MOD_ID, "item/facade_base" );
+public class FacadeItemModel implements BasicUnbakedModel<FacadeItemModel> {
 
-	@Override
-	public Collection<ResourceLocation> getDependencies()
-	{
-		return Collections.singleton( MODEL_BASE );
-	}
+    // We use this to get the default item transforms and make our lives easier
+    private static final ResourceLocation MODEL_BASE = new ResourceLocation(AppEng.MOD_ID, "item/facade_base");
 
-	@Override
-	public Collection<Material> getTextures( Function<ResourceLocation, IUnbakedModel> modelGetter, Set<Pair<String, String>> missingTextureErrors )
-	{
-		return Collections.emptyList();
-	}
+    @Override
+    public IBakedModel bake(IModelConfiguration owner, ModelBakery bakery,
+            Function<RenderMaterial, TextureAtlasSprite> spriteGetter, IModelTransform modelTransform,
+            ItemOverrideList overrides, ResourceLocation modelLocation) {
+        IBakedModel bakedBaseModel = bakery.getBakedModel(MODEL_BASE, modelTransform, spriteGetter);
+        FacadeBuilder facadeBuilder = new FacadeBuilder();
 
-	@Override
-	public IBakedModel bakeModel( ModelBakery modelBakeryIn, Function<Material, TextureAtlasSprite> spriteGetterIn, IModelTransform transformIn, ResourceLocation locationIn )
-	{
-		IBakedModel bakedBaseModel = modelBakeryIn.getBakedModel( MODEL_BASE, transformIn, spriteGetterIn );
-		FacadeBuilder facadeBuilder = new FacadeBuilder();
+        return new FacadeDispatcherBakedModel(bakedBaseModel, facadeBuilder);
+    }
 
-		return new FacadeDispatcherBakedModel( bakedBaseModel, facadeBuilder );
-	}
+    @Override
+    public Collection<ResourceLocation> getModelDependencies() {
+        return Collections.singleton(MODEL_BASE);
+    }
 }

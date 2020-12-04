@@ -18,7 +18,6 @@
 
 package appeng.bootstrap.components;
 
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -29,63 +28,45 @@ import com.google.common.collect.Sets;
 import net.minecraft.client.renderer.model.IBakedModel;
 import net.minecraft.client.renderer.model.ModelBakery;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ModelBakeEvent;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 import appeng.core.AppEng;
 
+public class ModelOverrideComponent implements IModelBakeComponent {
 
-public class ModelOverrideComponent implements IPreInitComponent
-{
+    // Maps from resource path to customizer
+    private final Map<String, BiFunction<ResourceLocation, IBakedModel, IBakedModel>> customizer = new HashMap<>();
 
-	// Maps from resource path to customizer
-	private final Map<String, BiFunction<ResourceLocation, IBakedModel, IBakedModel>> customizer = new HashMap<>();
+    public void addOverride(String resourcePath, BiFunction<ResourceLocation, IBakedModel, IBakedModel> customizer) {
+        this.customizer.put(resourcePath, customizer);
+    }
 
-	public void addOverride( String resourcePath, BiFunction<ResourceLocation, IBakedModel, IBakedModel> customizer )
-	{
-		this.customizer.put( resourcePath, customizer );
-	}
+    @Override
+    public void onModelBakeEvent(final ModelBakeEvent event) {
+        Map<ResourceLocation, IBakedModel> modelRegistry = event.getModelRegistry();
+        Set<ResourceLocation> keys = Sets.newHashSet(modelRegistry.keySet());
+        IBakedModel missingModel = modelRegistry.get(ModelBakery.MODEL_MISSING);
 
-	@Override
-	public void preInitialize( Dist dist )
-	{
-		MinecraftForge.EVENT_BUS.register( this );
-	}
+        for (ResourceLocation location : keys) {
+            if (!location.getNamespace().equals(AppEng.MOD_ID)) {
+                continue;
+            }
 
-	@SubscribeEvent
-	public void onModelBakeEvent( final ModelBakeEvent event )
-	{
-		Map<ResourceLocation, IBakedModel> modelRegistry = event.getModelRegistry();
-		Set<ResourceLocation> keys = Sets.newHashSet( modelRegistry.keySet() );
-		IBakedModel missingModel = modelRegistry.get(ModelBakery.MODEL_MISSING);
+            IBakedModel orgModel = modelRegistry.get(location);
 
-		for( ResourceLocation location : keys )
-		{
-			if( !location.getNamespace().equals( AppEng.MOD_ID ) )
-			{
-				continue;
-			}
+            // Don't customize the missing model. This causes Forge to swallow exceptions
+            if (orgModel == missingModel) {
+                continue;
+            }
 
-			IBakedModel orgModel = modelRegistry.get( location );
+            BiFunction<ResourceLocation, IBakedModel, IBakedModel> customizer = this.customizer.get(location.getPath());
+            if (customizer != null) {
+                IBakedModel newModel = customizer.apply(location, orgModel);
 
-			// Don't customize the missing model. This causes Forge to swallow exceptions
-			if( orgModel == missingModel )
-			{
-				continue;
-			}
-
-			BiFunction<ResourceLocation, IBakedModel, IBakedModel> customizer = this.customizer.get( location.getPath() );
-			if( customizer != null )
-			{
-				IBakedModel newModel = customizer.apply( location, orgModel );
-
-				if( newModel != orgModel )
-				{
-					modelRegistry.put( location, newModel );
-				}
-			}
-		}
-	}
+                if (newModel != orgModel) {
+                    modelRegistry.put(location, newModel);
+                }
+            }
+        }
+    }
 }

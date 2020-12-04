@@ -1,23 +1,5 @@
 package appeng.bootstrap;
 
-import appeng.block.AEBaseTileBlock;
-import appeng.bootstrap.components.IClientSetupComponent;
-import appeng.bootstrap.components.ITileEntityRegistrationComponent;
-import appeng.bootstrap.definitions.TileEntityDefinition;
-import appeng.core.AppEng;
-import appeng.api.features.AEFeature;
-import appeng.core.features.ActivityState;
-import appeng.core.features.BlockStackSrc;
-import appeng.tile.AEBaseTile;
-
-import com.google.common.base.Preconditions;
-import net.minecraft.block.Block;
-import net.minecraft.tileentity.TileEntityType;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.fml.client.registry.ClientRegistry;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -25,12 +7,32 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import com.google.common.base.Preconditions;
+
+import net.minecraft.block.Block;
+import net.minecraft.tileentity.TileEntityType;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.fml.DistExecutor;
+import net.minecraftforge.fml.client.registry.ClientRegistry;
+
+import appeng.api.features.AEFeature;
+import appeng.block.AEBaseTileBlock;
+import appeng.bootstrap.components.IClientSetupComponent;
+import appeng.bootstrap.components.ITileEntityRegistrationComponent;
+import appeng.bootstrap.definitions.TileEntityDefinition;
+import appeng.core.AppEng;
+import appeng.core.features.ActivityState;
+import appeng.core.features.BlockStackSrc;
+import appeng.tile.AEBaseTileEntity;
+import appeng.util.Platform;
+
 /**
  * Used to define our tile entities and all of their properties that are relevant to registering them.
  *
  * @param <T>
  */
-public class TileEntityBuilder<T extends AEBaseTile> {
+public class TileEntityBuilder<T extends AEBaseTileEntity> {
 
     private final FeatureFactory factory;
 
@@ -45,17 +47,22 @@ public class TileEntityBuilder<T extends AEBaseTile> {
     private final Function<TileEntityType<T>, T> supplier;
 
     @OnlyIn(Dist.CLIENT)
-    private final TileEntityRendering<T> tileEntityRendering = new TileEntityRendering<T>();
+    private TileEntityRendering<T> tileEntityRendering;
 
     private final List<Block> blocks = new ArrayList<>();
 
     private final EnumSet<AEFeature> features = EnumSet.noneOf(AEFeature.class);
 
-    public TileEntityBuilder(FeatureFactory factory, String registryName, Class<T> tileClass, Function<TileEntityType<T>, T> supplier) {
+    public TileEntityBuilder(FeatureFactory factory, String registryName, Class<T> tileClass,
+            Function<TileEntityType<T>, T> supplier) {
         this.factory = factory;
         this.registryName = registryName;
         this.tileClass = tileClass;
         this.supplier = supplier;
+
+        if (Platform.hasClientClasses()) {
+            this.tileEntityRendering = new TileEntityRendering<>();
+        }
     }
 
     public TileEntityBuilder<T> features(AEFeature... features) {
@@ -77,21 +84,17 @@ public class TileEntityBuilder<T extends AEBaseTile> {
     @SuppressWarnings("unchecked")
     public TileEntityDefinition build() {
 
-        this.factory.addBootstrapComponent((ITileEntityRegistrationComponent) registry ->
-        {
+        this.factory.addBootstrapComponent((ITileEntityRegistrationComponent) registry -> {
             if (blocks.isEmpty()) {
                 throw new IllegalStateException("No blocks make use of this tile entity: " + tileClass);
             }
 
             Supplier<T> factory = () -> supplier.apply(type);
-            type = TileEntityType.Builder.create(factory, blocks.toArray(new Block[0]))
-                    .build(null);
+            type = TileEntityType.Builder.create(factory, blocks.toArray(new Block[0])).build(null);
             type.setRegistryName(AppEng.MOD_ID, registryName);
             registry.register(type);
 
-            AEBaseTile.registerTileItem(
-                    tileClass,
-                    new BlockStackSrc(blocks.get(0), ActivityState.Enabled));
+            AEBaseTileEntity.registerTileItem(tileClass, new BlockStackSrc(blocks.get(0), ActivityState.Enabled));
 
             for (Block block : blocks) {
                 if (block instanceof AEBaseTileBlock) {
@@ -101,7 +104,7 @@ public class TileEntityBuilder<T extends AEBaseTile> {
             }
 
         });
-        DistExecutor.runWhenOn( Dist.CLIENT, () ->  this::buildClient );
+        DistExecutor.runWhenOn(Dist.CLIENT, () -> this::buildClient);
 
         return new TileEntityDefinition(this::addBlock);
 
@@ -109,7 +112,7 @@ public class TileEntityBuilder<T extends AEBaseTile> {
 
     @OnlyIn(Dist.CLIENT)
     private void buildClient() {
-        this.factory.addBootstrapComponent( (IClientSetupComponent) ()-> {
+        this.factory.addBootstrapComponent((IClientSetupComponent) () -> {
             if (tileEntityRendering.tileEntityRenderer != null) {
                 ClientRegistry.bindTileEntityRenderer(type, tileEntityRendering.tileEntityRenderer);
             }

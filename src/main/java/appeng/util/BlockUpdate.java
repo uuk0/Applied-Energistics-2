@@ -18,28 +18,23 @@
 
 package appeng.util;
 
-
+import net.minecraft.block.Blocks;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
+public class BlockUpdate implements IWorldCallable<Boolean> {
+    private final BlockPos pos;
 
-public class BlockUpdate implements IWorldCallable<Boolean>
-{
-	private final BlockPos pos;
+    BlockUpdate(final BlockPos pos) {
+        this.pos = pos;
+    }
 
-	BlockUpdate( final BlockPos pos )
-	{
-		this.pos = pos;
-	}
+    @Override
+    public Boolean call(final World world) throws Exception {
+        if (world.isBlockLoaded(this.pos)) {
+            world.notifyNeighborsOfStateChange(this.pos, Blocks.AIR);
+        }
 
-	@Override
-	public Boolean call( final World world ) throws Exception
-	{
-		if( world.isBlockLoaded( this.pos ) )
-		{
-			world.notifyNeighborsOfStateChange( this.pos, Platform.AIR_BLOCK );
-		}
-
-		return true;
-	}
+        return true;
+    }
 }

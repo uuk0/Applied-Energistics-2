@@ -18,57 +18,55 @@
 
 package appeng.client.render.tesr;
 
-
 import com.mojang.blaze3d.matrix.MatrixStack;
-import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.IVertexBuilder;
-import net.minecraft.client.renderer.*;
-import net.minecraft.client.renderer.model.IBakedModel;
-import net.minecraft.client.renderer.texture.AtlasTexture;
-import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
-import org.lwjgl.opengl.GL11;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.Atlases;
+import net.minecraft.client.renderer.BlockRendererDispatcher;
+import net.minecraft.client.renderer.IRenderTypeBuffer;
+import net.minecraft.client.renderer.model.IBakedModel;
 import net.minecraft.client.renderer.tileentity.TileEntityRenderer;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
+import net.minecraft.util.math.vector.Quaternion;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 
 import appeng.client.render.FacingToRotation;
-import appeng.tile.grindstone.TileCrank;
-
+import appeng.tile.grindstone.CrankTileEntity;
 
 /**
  * This FastTESR only handles the animated model of the turning crank. When the crank is at rest, it is rendered using a
  * normal model.
  */
-@OnlyIn( Dist.CLIENT )
-public class CrankTESR extends TileEntityRenderer<TileCrank>
-{
+@OnlyIn(Dist.CLIENT)
+public class CrankTESR extends TileEntityRenderer<CrankTileEntity> {
 
-	public CrankTESR(TileEntityRendererDispatcher rendererDispatcherIn) {
-		super(rendererDispatcherIn);
-	}
+    public CrankTESR(TileEntityRendererDispatcher rendererDispatcherIn) {
+        super(rendererDispatcherIn);
+    }
 
-	@Override
-	public void render(TileCrank te, float partialTicks, MatrixStack ms, IRenderTypeBuffer buffers, int combinedLightIn, int combinedOverlayIn) {
+    @Override
+    public void render(CrankTileEntity te, float partialTicks, MatrixStack ms, IRenderTypeBuffer buffers,
+            int combinedLightIn, int combinedOverlayIn) {
 
-		// Apply GL transformations relative to the center of the block: 1) TE rotation and 2) crank rotation
-		ms.push();
-		ms.translate( 0.5, 0.5, 0.5 );
-		FacingToRotation.get( te.getForward(), te.getUp() ).push(ms);
-		ms.rotate( new Quaternion(0, te.getVisibleRotation(), 0, true) );
-		ms.translate( -0.5, -0.5, -0.5 );
+        // Apply GL transformations relative to the center of the block: 1) TE rotation
+        // and 2) crank rotation
+        ms.push();
+        ms.translate(0.5, 0.5, 0.5);
+        FacingToRotation.get(te.getForward(), te.getUp()).push(ms);
+        ms.rotate(new Quaternion(0, te.getVisibleRotation(), 0, true));
+        ms.translate(-0.5, -0.5, -0.5);
 
-		BlockState blockState = te.getWorld().getBlockState( te.getPos() ); // FIXME: i think world might be null here
-		BlockRendererDispatcher dispatcher = Minecraft.getInstance().getBlockRendererDispatcher();
-		IBakedModel model = dispatcher.getModelForState( blockState );
-		IVertexBuilder buffer = buffers.getBuffer(Atlases.getTranslucentBlockType());
-		dispatcher.getBlockModelRenderer().renderModelBrightnessColor(ms.getLast(), buffer, null, model, 1, 1, 1, combinedLightIn, combinedOverlayIn);
-		ms.pop();
+        BlockState blockState = te.getBlockState();
+        BlockRendererDispatcher dispatcher = Minecraft.getInstance().getBlockRendererDispatcher();
+        IBakedModel model = dispatcher.getModelForState(blockState);
+        IVertexBuilder buffer = buffers.getBuffer(Atlases.getCutoutBlockType());
+        dispatcher.getBlockModelRenderer().renderModelBrightnessColor(ms.getLast(), buffer, null, model, 1, 1, 1,
+                combinedLightIn, combinedOverlayIn);
+        ms.pop();
 
-	}
+    }
 
 }

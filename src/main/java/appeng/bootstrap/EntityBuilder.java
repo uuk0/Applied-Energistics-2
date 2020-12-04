@@ -1,15 +1,16 @@
 package appeng.bootstrap;
 
-import appeng.api.features.AEFeature;
-import appeng.bootstrap.components.IEntityRegistrationComponent;
-import appeng.core.AppEng;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.function.Consumer;
+
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityClassification;
 import net.minecraft.entity.EntityType;
 
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.function.Consumer;
+import appeng.api.features.AEFeature;
+import appeng.bootstrap.components.IEntityRegistrationComponent;
+import appeng.core.AppEng;
 
 /**
  * Helper to register a custom Entity with Minecraft.
@@ -24,10 +25,11 @@ public class EntityBuilder<T extends Entity> {
 
     private final EnumSet<AEFeature> features = EnumSet.noneOf(AEFeature.class);
 
-    public EntityBuilder(FeatureFactory factory, String id, EntityType.IFactory<T> entityFactory, EntityClassification classification) {
+    public EntityBuilder(FeatureFactory factory, String id, EntityType.IFactory<T> entityFactory,
+            EntityClassification classification) {
         this.factory = factory;
         this.id = id;
-        this.builder = EntityType.Builder.<T>create(entityFactory, classification);
+        this.builder = EntityType.Builder.create(entityFactory, classification);
     }
 
     public EntityBuilder<T> features(AEFeature... features) {
@@ -46,10 +48,12 @@ public class EntityBuilder<T extends Entity> {
         return this;
     }
 
-    public void build() {
+    public EntityType<T> build() {
+        EntityType<T> entityType = builder.build("appliedenergistics2:" + id);
+        entityType.setRegistryName(AppEng.MOD_ID, id);
         factory.addBootstrapComponent((IEntityRegistrationComponent) r -> {
-            EntityType<T> entityType = builder.build("appliedenergistics2:" + id);
-            r.register( entityType.setRegistryName(AppEng.MOD_ID, id) );
+            r.register(entityType);
         });
+        return entityType;
     }
 }

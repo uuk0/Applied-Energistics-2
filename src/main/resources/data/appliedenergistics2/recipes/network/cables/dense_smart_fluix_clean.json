@@ -1,0 +1,14 @@
+{
+  "result": {
+    "item": "appliedenergistics2:fluix_smart_dense_cable"
+  },
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "tag": "appliedenergistics2:smart_dense_cable"
+    },
+    {
+      "item": "minecraft:water_bucket"
+    }
+  ]
+}

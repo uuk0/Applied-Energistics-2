@@ -18,48 +18,39 @@
 
 package appeng.client.render.renderable;
 
-
-import java.nio.FloatBuffer;
 import java.util.function.Function;
 
-import net.minecraft.client.renderer.IRenderTypeBuffer;
-import net.minecraft.client.renderer.Matrix4f;
-import net.minecraft.client.renderer.model.ItemCameraTransforms;
 import org.apache.commons.lang3.tuple.Pair;
-import org.lwjgl.BufferUtils;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.IRenderTypeBuffer;
+import net.minecraft.client.renderer.model.ItemCameraTransforms;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.vector.TransformationMatrix;
 
+public class ItemRenderable<T extends TileEntity> implements Renderable<T> {
 
-public class ItemRenderable<T extends TileEntity> implements Renderable<T>
-{
+    private final Function<T, Pair<ItemStack, TransformationMatrix>> f;
 
-	private final Function<T, Pair<ItemStack, Matrix4f>> f;
+    public ItemRenderable(Function<T, Pair<ItemStack, TransformationMatrix>> f) {
+        this.f = f;
+    }
 
-	public ItemRenderable( Function<T, Pair<ItemStack, Matrix4f>> f )
-	{
-		this.f = f;
-	}
-
-	@Override
-	public void renderTileEntityAt(T te, float partialTicks, com.mojang.blaze3d.matrix.MatrixStack matrixStack, IRenderTypeBuffer buffers, int combinedLight, int combinedOverlay)
-	{
-		Pair<ItemStack, Matrix4f> pair = this.f.apply( te );
-		if( pair != null && pair.getLeft() != null )
-		{
-			matrixStack.push();
-			if( pair.getRight() != null )
-			{
-				FloatBuffer matrix = BufferUtils.createFloatBuffer( 16 );
-				// FIXME pair.getRight().store( matrix );
-				// FIXME matrix.flip();
-				// FIXME matrixStack.( matrix );
-			}
-			Minecraft.getInstance().getItemRenderer().renderItem( pair.getLeft(), ItemCameraTransforms.TransformType.GROUND, combinedLight, combinedOverlay, matrixStack, buffers );
-			matrixStack.pop();
-		}
-	}
+    @Override
+    public void renderTileEntityAt(T te, float partialTicks, com.mojang.blaze3d.matrix.MatrixStack matrixStack,
+            IRenderTypeBuffer buffers, int combinedLight, int combinedOverlay) {
+        Pair<ItemStack, TransformationMatrix> pair = this.f.apply(te);
+        if (pair != null && pair.getLeft() != null) {
+            if (pair.getRight() != null) {
+                pair.getRight().push(matrixStack);
+            } else {
+                matrixStack.push();
+            }
+            Minecraft.getInstance().getItemRenderer().renderItem(pair.getLeft(),
+                    ItemCameraTransforms.TransformType.GROUND, combinedLight, combinedOverlay, matrixStack, buffers);
+            matrixStack.pop();
+        }
+    }
 
 }

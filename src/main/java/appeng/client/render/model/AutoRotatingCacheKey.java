@@ -18,72 +18,54 @@
 
 package appeng.client.render.model;
 
-
 import net.minecraft.block.BlockState;
 import net.minecraft.util.Direction;
-
 
 /**
  * Used as the cache key for caching automatically rotated baked models.
  */
-final class AutoRotatingCacheKey
-{
-	private final BlockState blockState;
-	private final Direction forward;
-	private final Direction up;
-	private final Direction side;
+final class AutoRotatingCacheKey {
+    private final BlockState blockState;
+    private final AEModelData modelData;
+    private final Direction side;
 
-	AutoRotatingCacheKey( BlockState blockState, Direction forward, Direction up, Direction side )
-	{
-		this.blockState = blockState;
-		this.forward = forward;
-		this.up = up;
-		this.side = side;
-	}
+    AutoRotatingCacheKey(BlockState blockState, AEModelData modelData, Direction side) {
+        this.blockState = blockState;
+        this.modelData = modelData;
+        this.side = side;
+    }
 
-	public BlockState getBlockState()
-	{
-		return this.blockState;
-	}
+    public BlockState getBlockState() {
+        return this.blockState;
+    }
 
-	public Direction getForward()
-	{
-		return this.forward;
-	}
+    public AEModelData getModelData() {
+        return modelData;
+    }
 
-	public Direction getUp()
-	{
-		return this.up;
-	}
+    public Direction getSide() {
+        return this.side;
+    }
 
-	public Direction getSide()
-	{
-		return this.side;
-	}
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || this.getClass() != o.getClass()) {
+            return false;
+        }
 
-	@Override
-	public boolean equals( Object o )
-	{
-		if( this == o )
-		{
-			return true;
-		}
-		if( o == null || this.getClass() != o.getClass() )
-		{
-			return false;
-		}
+        AutoRotatingCacheKey cacheKey = (AutoRotatingCacheKey) o;
+        return this.blockState.equals(cacheKey.blockState) && this.modelData.equals(cacheKey.modelData)
+                && this.side == cacheKey.side;
+    }
 
-		AutoRotatingCacheKey cacheKey = (AutoRotatingCacheKey) o;
-		return this.blockState.equals( cacheKey.blockState ) && this.forward == cacheKey.forward && this.up == cacheKey.up && this.side == cacheKey.side;
-	}
-
-	@Override
-	public int hashCode()
-	{
-		int result = this.blockState.hashCode();
-		result = 31 * result + this.forward.hashCode();
-		result = 31 * result + this.up.hashCode();
-		result = 31 * result + ( this.side != null ? this.side.hashCode() : 0 );
-		return result;
-	}
+    @Override
+    public int hashCode() {
+        int result = this.blockState.hashCode();
+        result = 31 * result + this.modelData.hashCode();
+        result = 31 * result + (this.side != null ? this.side.hashCode() : 0);
+        return result;
+    }
 }

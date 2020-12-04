@@ -18,80 +18,90 @@
 
 package appeng.client.render.cablebus;
 
-
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
-import javax.annotation.Nullable;
+import java.util.stream.Stream;
 
 import com.google.common.collect.ImmutableMap;
-import com.mojang.datafixers.util.Pair;
 
 import net.minecraft.client.renderer.model.IBakedModel;
 import net.minecraft.client.renderer.model.IModelTransform;
-import net.minecraft.client.renderer.model.IUnbakedModel;
-import net.minecraft.client.renderer.model.Material;
+import net.minecraft.client.renderer.model.ItemOverrideList;
 import net.minecraft.client.renderer.model.ModelBakery;
+import net.minecraft.client.renderer.model.RenderMaterial;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.client.model.IModelConfiguration;
 
 import appeng.api.util.AEColor;
+import appeng.client.render.BasicUnbakedModel;
+import appeng.core.AELog;
+import appeng.core.AppEng;
 import appeng.core.features.registries.PartModels;
-
 
 /**
  * The built-in model for the cable bus block.
  */
-public class CableBusModel implements IUnbakedModel
-{
+public class CableBusModel implements BasicUnbakedModel<CableBusModel> {
 
-	private final PartModels partModels;
+    public static final ResourceLocation TRANSLUCENT_FACADE_MODEL = AppEng.makeId("part/translucent_facade");
 
-	public CableBusModel( PartModels partModels )
-	{
-		this.partModels = partModels;
-	}
+    private final PartModels partModels;
 
-	@Override
-	public Collection<ResourceLocation> getDependencies()
-	{
-		this.partModels.setInitialized( true );
-		return this.partModels.getModels();
-	}
+    public CableBusModel(PartModels partModels) {
+        this.partModels = partModels;
+    }
 
-	@Override
-	public Collection<Material> getTextures( Function<ResourceLocation, IUnbakedModel> modelGetter, Set<Pair<String, String>> missingTextureErrors )
-	{
-		return Collections.unmodifiableList( CableBuilder.getTextures() );
-	}
+    @Override
+    public Collection<ResourceLocation> getModelDependencies() {
+        partModels.setInitialized(true);
+        List<ResourceLocation> models = new ArrayList<>(partModels.getModels());
+        models.add(TRANSLUCENT_FACADE_MODEL);
+        return models;
+    }
 
-	@Nullable
-	@Override
-	public IBakedModel bakeModel( ModelBakery modelBakeryIn, Function<Material, TextureAtlasSprite> spriteGetterIn, IModelTransform transformIn, ResourceLocation locationIn )
-	{
-		Map<ResourceLocation, IBakedModel> partModels = this.loadPartModels( modelBakeryIn, spriteGetterIn, transformIn );
+    @Override
+    public Stream<RenderMaterial> getAdditionalTextures() {
+        return CableBuilder.getTextures().stream();
+    }
 
-		CableBuilder cableBuilder = new CableBuilder( spriteGetterIn );
-		FacadeBuilder facadeBuilder = new FacadeBuilder();
+    @Override
+    public IBakedModel bake(IModelConfiguration owner, ModelBakery bakery,
+            Function<RenderMaterial, TextureAtlasSprite> spriteGetter, IModelTransform modelTransform,
+            ItemOverrideList overrides, ResourceLocation modelLocation) {
+        Map<ResourceLocation, IBakedModel> partModels = this.loadPartModels(bakery, spriteGetter, modelTransform);
 
-		// This should normally not be used, but we *have* to provide a particle texture or otherwise damage models will
-		// crash
-		TextureAtlasSprite particleTexture = cableBuilder.getCoreTexture( CableCoreType.GLASS, AEColor.TRANSPARENT );
+        CableBuilder cableBuilder = new CableBuilder(spriteGetter);
 
-		return new CableBusBakedModel( cableBuilder, facadeBuilder, partModels, particleTexture );
-	}
+        IBakedModel translucentFacadeModel = bakery.getBakedModel(TRANSLUCENT_FACADE_MODEL, modelTransform,
+                spriteGetter);
 
-	private Map<ResourceLocation, IBakedModel> loadPartModels( ModelBakery modelBakeryIn, Function<Material, TextureAtlasSprite> spriteGetterIn, IModelTransform transformIn )
-	{
-		ImmutableMap.Builder<ResourceLocation, IBakedModel> result = ImmutableMap.builder();
+        FacadeBuilder facadeBuilder = new FacadeBuilder(translucentFacadeModel);
 
-		for( ResourceLocation location : this.partModels.getModels() )
-		{
-			result.put( location, modelBakeryIn.getBakedModel( location, transformIn, spriteGetterIn ) );
-		}
+        // This should normally not be used, but we *have* to provide a particle texture
+        // or otherwise damage models will
+        // crash
+        TextureAtlasSprite particleTexture = cableBuilder.getCoreTexture(CableCoreType.GLASS, AEColor.TRANSPARENT);
 
-		return result.build();
-	}
+        return new CableBusBakedModel(cableBuilder, facadeBuilder, partModels, particleTexture);
+    }
+
+    private Map<ResourceLocation, IBakedModel> loadPartModels(ModelBakery bakery,
+            Function<RenderMaterial, TextureAtlasSprite> spriteGetterIn, IModelTransform transformIn) {
+        ImmutableMap.Builder<ResourceLocation, IBakedModel> result = ImmutableMap.builder();
+
+        for (ResourceLocation location : this.partModels.getModels()) {
+            IBakedModel bakedModel = bakery.getBakedModel(location, transformIn, spriteGetterIn);
+            if (bakedModel == null) {
+                AELog.warn("Failed to bake part model {}", location);
+            } else {
+                result.put(location, bakedModel);
+            }
+        }
+
+        return result.build();
+    }
 }

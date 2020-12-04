@@ -18,12 +18,9 @@
 
 package appeng.bootstrap.definitions;
 
-
-import appeng.tile.AEBaseTile;
-import net.minecraft.block.Block;
-
 import java.util.function.Consumer;
 
+import net.minecraft.block.Block;
 
 /**
  * @author GuntherDW
@@ -34,7 +31,7 @@ public class TileEntityDefinition {
     private final Consumer<Block> addBlockListener;
 
     public TileEntityDefinition(Consumer<Block> addBlockListener) {
-    	this.addBlockListener = addBlockListener;
+        this.addBlockListener = addBlockListener;
     }
 
     public void addBlock(Block block) {

@@ -23,97 +23,72 @@
 
 package appeng.api.features;
 
-
-import appeng.api.AEInjectable;
 import appeng.api.movable.IMovableRegistry;
 import appeng.api.networking.IGridCacheRegistry;
 import appeng.api.parts.IPartModels;
 import appeng.api.storage.ICellRegistry;
 
-
 /**
  * @author AlgorithmX2
  * @author thatsIch
  * @author yueh
- * @version rv5
+ * @version 7
  * @since rv0
  */
-@AEInjectable
-public interface IRegistryContainer
-{
+public interface IRegistryContainer {
 
-	/**
-	 * Use the movable registry to white list your tiles.
-	 */
-	IMovableRegistry movable();
+    /**
+     * Use the movable registry to white list your tiles.
+     */
+    IMovableRegistry movable();
 
-	/**
-	 * Add new Grid Caches for use during run time, only use during loading phase.
-	 */
-	IGridCacheRegistry gridCache();
+    /**
+     * Add new Grid Caches for use during run time, only use during loading phase.
+     */
+    IGridCacheRegistry gridCache();
 
-	/**
-	 * Add additional special comparison functionality, AE Uses this internally for Bees.
-	 */
-	ISpecialComparisonRegistry specialComparison();
+    /**
+     * Lets you register your items as wireless terminals
+     */
+    IWirelessTermRegistry wireless();
 
-	/**
-	 * Lets you register your items as wireless terminals
-	 */
-	IWirelessTermRegistry wireless();
+    /**
+     * Allows you to register new cell types, these will function in drives
+     */
+    ICellRegistry cell();
 
-	/**
-	 * Allows you to register new cell types, these will function in drives
-	 */
-	ICellRegistry cell();
+    /**
+     * Manage charger via API
+     */
+    IChargerRegistry charger();
 
-	/**
-	 * Manage grinder recipes via API
-	 */
-	IGrinderRegistry grinder();
+    /**
+     * get access to the locatable registry
+     */
+    ILocatableRegistry locatable();
 
-	/**
-	 * Manage inscriber recipes via API
-	 */
-	IInscriberRegistry inscriber();
+    /**
+     * get access to the p2p tunnel registry.
+     */
+    IP2PTunnelRegistry p2pTunnel();
 
-	/**
-	 * Manage charger via API
-	 */
-	IChargerRegistry charger();
+    /**
+     * get access to the ammo registry.
+     */
+    IMatterCannonAmmoRegistry matterCannon();
 
-	/**
-	 * get access to the locatable registry
-	 */
-	ILocatableRegistry locatable();
+    /**
+     * get access to the player registry
+     */
+    IPlayerRegistry players();
 
-	/**
-	 * get access to the p2p tunnel registry.
-	 */
-	IP2PTunnelRegistry p2pTunnel();
+    /**
+     * get access to the world-gen api.
+     */
+    IWorldGen worldgen();
 
-	/**
-	 * get access to the ammo registry.
-	 */
-	IMatterCannonAmmoRegistry matterCannon();
-
-	/**
-	 * get access to the player registry
-	 */
-	IPlayerRegistry players();
-
-	/**
-	 * get access to the ae2 recipe api
-	 */
-	IRecipeHandlerRegistry recipes();
-
-	/**
-	 * get access to the world-gen api.
-	 */
-	IWorldGen worldgen();
-
-	/**
-	 * Register your IPart models before using them.
-	 */
-	IPartModels partModels();
+    /**
+     * Register your IPart models before using them.
+     */
+    IPartModels partModels();
 }

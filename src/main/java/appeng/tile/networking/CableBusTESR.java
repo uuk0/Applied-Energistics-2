@@ -18,33 +18,33 @@
 
 package appeng.tile.networking;
 
-
 import com.mojang.blaze3d.matrix.MatrixStack;
+
 import net.minecraft.client.renderer.IRenderTypeBuffer;
 import net.minecraft.client.renderer.tileentity.TileEntityRenderer;
 import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
 import net.minecraft.util.Direction;
 
 import appeng.api.parts.IPart;
-import appeng.tile.AEBaseTile;
 
+public class CableBusTESR extends TileEntityRenderer<CableBusTileEntity> {
 
-public class CableBusTESR extends TileEntityRenderer<TileCableBusTESR>
-{
+    public CableBusTESR(TileEntityRendererDispatcher rendererDispatcherIn) {
+        super(rendererDispatcherIn);
+    }
 
-	public CableBusTESR(TileEntityRendererDispatcher rendererDispatcherIn) {
-		super(rendererDispatcherIn);
-	}
+    @Override
+    public void render(CableBusTileEntity te, float partialTicks, MatrixStack ms, IRenderTypeBuffer buffers,
+            int combinedLightIn, int combinedOverlayIn) {
+        if (!te.getCableBus().isRequiresDynamicRender()) {
+            return;
+        }
 
-	@Override
-	public void render(TileCableBusTESR te, float partialTicks, MatrixStack ms, IRenderTypeBuffer buffers, int combinedLightIn, int combinedOverlayIn) {
-		for( Direction facing : Direction.values() )
-		{
-			IPart part = te.getPart( facing );
-			if( part != null && part.requireDynamicRender() )
-			{
-				part.renderDynamic(partialTicks, ms, buffers, combinedLightIn, combinedOverlayIn);
-			}
-		}
-	}
+        for (Direction facing : Direction.values()) {
+            IPart part = te.getPart(facing);
+            if (part != null && part.requireDynamicRender()) {
+                part.renderDynamic(partialTicks, ms, buffers, combinedLightIn, combinedOverlayIn);
+            }
+        }
+    }
 }

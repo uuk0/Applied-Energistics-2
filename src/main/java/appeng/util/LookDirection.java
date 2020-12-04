@@ -18,29 +18,23 @@
 
 package appeng.util;
 
+import net.minecraft.util.math.vector.Vector3d;
 
-import net.minecraft.util.math.Vec3d;
+public class LookDirection {
 
+    private final Vector3d a;
+    private final Vector3d b;
 
-public class LookDirection
-{
+    public LookDirection(final Vector3d a, final Vector3d b) {
+        this.a = a;
+        this.b = b;
+    }
 
-	private final Vec3d a;
-	private final Vec3d b;
+    public Vector3d getA() {
+        return this.a;
+    }
 
-	public LookDirection( final Vec3d a, final Vec3d b )
-	{
-		this.a = a;
-		this.b = b;
-	}
-
-	public Vec3d getA()
-	{
-		return this.a;
-	}
-
-	public Vec3d getB()
-	{
-		return this.b;
-	}
+    public Vector3d getB() {
+        return this.b;
+    }
 }

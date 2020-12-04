@@ -18,124 +18,118 @@
 
 package appeng.me.cluster.implementations;
 
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import appeng.api.networking.IGridHost;
-import appeng.api.util.DimensionalCoord;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+
 import appeng.me.cluster.IAECluster;
-import appeng.tile.spatial.TileSpatialPylon;
+import appeng.me.cluster.MBCalculator;
+import appeng.tile.spatial.SpatialPylonTileEntity;
 
+public class SpatialPylonCluster implements IAECluster {
 
-public class SpatialPylonCluster implements IAECluster
-{
+    private final World world;
+    private final BlockPos boundsMin;
+    private final BlockPos boundsMax;
+    private final List<SpatialPylonTileEntity> line = new ArrayList<>();
+    private boolean isDestroyed = false;
 
-	private final DimensionalCoord min;
-	private final DimensionalCoord max;
-	private final List<TileSpatialPylon> line = new ArrayList<>();
-	private boolean isDestroyed = false;
+    private Axis currentAxis = Axis.UNFORMED;
+    private boolean isValid;
 
-	private Axis currentAxis = Axis.UNFORMED;
-	private boolean isValid;
+    public SpatialPylonCluster(final World world, final BlockPos boundsMin, final BlockPos boundsMax) {
+        this.world = world;
+        this.boundsMin = boundsMin.toImmutable();
+        this.boundsMax = boundsMax.toImmutable();
 
-	public SpatialPylonCluster( final DimensionalCoord min, final DimensionalCoord max )
-	{
-		this.min = min.copy();
-		this.max = max.copy();
+        if (this.getBoundsMin().getX() != this.getBoundsMax().getX()) {
+            this.setCurrentAxis(Axis.X);
+        } else if (this.getBoundsMin().getY() != this.getBoundsMax().getY()) {
+            this.setCurrentAxis(Axis.Y);
+        } else if (this.getBoundsMin().getZ() != this.getBoundsMax().getZ()) {
+            this.setCurrentAxis(Axis.Z);
+        } else {
+            this.setCurrentAxis(Axis.UNFORMED);
+        }
+    }
 
-		if( this.getMin().x != this.getMax().x )
-		{
-			this.setCurrentAxis( Axis.X );
-		}
-		else if( this.getMin().y != this.getMax().y )
-		{
-			this.setCurrentAxis( Axis.Y );
-		}
-		else if( this.getMin().z != this.getMax().z )
-		{
-			this.setCurrentAxis( Axis.Z );
-		}
-		else
-		{
-			this.setCurrentAxis( Axis.UNFORMED );
-		}
-	}
+    @Override
+    public void updateStatus(final boolean updateGrid) {
+        for (final SpatialPylonTileEntity r : this.getLine()) {
+            r.recalculateDisplay();
+        }
+    }
 
-	@Override
-	public void updateStatus( final boolean updateGrid )
-	{
-		for( final TileSpatialPylon r : this.getLine() )
-		{
-			r.recalculateDisplay();
-		}
-	}
+    @Override
+    public boolean isDestroyed() {
+        return isDestroyed;
+    }
 
-	@Override
-	public void destroy()
-	{
+    @Override
+    public void destroy() {
 
-		if( this.isDestroyed )
-		{
-			return;
-		}
-		this.isDestroyed = true;
+        if (this.isDestroyed) {
+            return;
+        }
+        this.isDestroyed = true;
 
-		for( final TileSpatialPylon r : this.getLine() )
-		{
-			r.updateStatus( null );
-		}
-	}
+        MBCalculator.setModificationInProgress(this);
+        try {
+            for (final SpatialPylonTileEntity r : this.getLine()) {
+                r.updateStatus(null);
+            }
+        } finally {
+            MBCalculator.setModificationInProgress(null);
+        }
+    }
 
-	@Override
-	public Iterator<IGridHost> getTiles()
-	{
-		return (Iterator) this.getLine().iterator();
-	}
+    @Override
+    public Iterator<SpatialPylonTileEntity> getTiles() {
+        return this.getLine().iterator();
+    }
 
-	public int tileCount()
-	{
-		return this.getLine().size();
-	}
+    public int tileCount() {
+        return this.getLine().size();
+    }
 
-	public Axis getCurrentAxis()
-	{
-		return this.currentAxis;
-	}
+    public Axis getCurrentAxis() {
+        return this.currentAxis;
+    }
 
-	private void setCurrentAxis( final Axis currentAxis )
-	{
-		this.currentAxis = currentAxis;
-	}
+    private void setCurrentAxis(final Axis currentAxis) {
+        this.currentAxis = currentAxis;
+    }
 
-	public boolean isValid()
-	{
-		return this.isValid;
-	}
+    public boolean isValid() {
+        return this.isValid;
+    }
 
-	public void setValid( final boolean isValid )
-	{
-		this.isValid = isValid;
-	}
+    public void setValid(final boolean isValid) {
+        this.isValid = isValid;
+    }
 
-	public DimensionalCoord getMax()
-	{
-		return this.max;
-	}
+    public World getWorld() {
+        return world;
+    }
 
-	public DimensionalCoord getMin()
-	{
-		return this.min;
-	}
+    @Override
+    public BlockPos getBoundsMax() {
+        return this.boundsMax;
+    }
 
-	List<TileSpatialPylon> getLine()
-	{
-		return this.line;
-	}
+    @Override
+    public BlockPos getBoundsMin() {
+        return this.boundsMin;
+    }
 
-	public enum Axis
-	{
-		X, Y, Z, UNFORMED
-	}
+    List<SpatialPylonTileEntity> getLine() {
+        return this.line;
+    }
+
+    public enum Axis {
+        X, Y, Z, UNFORMED
+    }
 }

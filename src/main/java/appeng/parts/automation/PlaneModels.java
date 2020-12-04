@@ -18,13 +18,9 @@
 
 package appeng.parts.automation;
 
-
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 
 import net.minecraft.util.ResourceLocation;
 
@@ -32,67 +28,45 @@ import appeng.api.parts.IPartModel;
 import appeng.core.AppEng;
 import appeng.parts.PartModel;
 
-
 /**
  * Contains a mapping from a Plane's connections to the models to use for that state.
  */
-public class PlaneModels
-{
+public class PlaneModels {
 
-	public static final ResourceLocation MODEL_CHASSIS_OFF = new ResourceLocation( AppEng.MOD_ID, "part/transition_plane_off" );
-	public static final ResourceLocation MODEL_CHASSIS_ON = new ResourceLocation( AppEng.MOD_ID, "part/transition_plane_on" );
-	public static final ResourceLocation MODEL_CHASSIS_HAS_CHANNEL = new ResourceLocation( AppEng.MOD_ID, "part/transition_plane_has_channel" );
+    public static final ResourceLocation MODEL_CHASSIS_OFF = new ResourceLocation(AppEng.MOD_ID,
+            "part/transition_plane_off");
+    public static final ResourceLocation MODEL_CHASSIS_ON = new ResourceLocation(AppEng.MOD_ID,
+            "part/transition_plane_on");
+    public static final ResourceLocation MODEL_CHASSIS_HAS_CHANNEL = new ResourceLocation(AppEng.MOD_ID,
+            "part/transition_plane_has_channel");
 
-	private final Map<PlaneConnections, IPartModel> modelsOff;
+    private final IPartModel modelOff;
 
-	private final Map<PlaneConnections, IPartModel> modelsOn;
+    private final IPartModel modelOn;
 
-	private final Map<PlaneConnections, IPartModel> modelsHasChannel;
+    private final IPartModel modelHasChannel;
 
-	public PlaneModels( String prefixOff, String prefixOn )
-	{
-		Map<PlaneConnections, IPartModel> modelsOff = new HashMap<>();
-		Map<PlaneConnections, IPartModel> modelsOn = new HashMap<>();
-		Map<PlaneConnections, IPartModel> modelsHasChannel = new HashMap<>();
+    public PlaneModels(String planeOffLocation, String planeOnLocation) {
+        ResourceLocation planeOff = new ResourceLocation(AppEng.MOD_ID, planeOffLocation);
+        ResourceLocation planeOn = new ResourceLocation(AppEng.MOD_ID, planeOnLocation);
 
-		for( PlaneConnections permutation : PlaneConnections.PERMUTATIONS )
-		{
-			ResourceLocation planeOff = new ResourceLocation( AppEng.MOD_ID, prefixOff + permutation.getFilenameSuffix() );
-			ResourceLocation planeOn = new ResourceLocation( AppEng.MOD_ID, prefixOn + permutation.getFilenameSuffix() );
+        this.modelOff = new PartModel(MODEL_CHASSIS_OFF, planeOff);
+        this.modelOn = new PartModel(MODEL_CHASSIS_ON, planeOff);
+        this.modelHasChannel = new PartModel(MODEL_CHASSIS_HAS_CHANNEL, planeOn);
+    }
 
-			modelsOff.put( permutation, new PartModel( MODEL_CHASSIS_OFF, planeOff ) );
-			modelsOn.put( permutation, new PartModel( MODEL_CHASSIS_ON, planeOff ) );
-			modelsHasChannel.put( permutation, new PartModel( MODEL_CHASSIS_HAS_CHANNEL, planeOn ) );
-		}
+    public IPartModel getModel(boolean hasPower, boolean hasChannel) {
+        if (hasPower && hasChannel) {
+            return modelHasChannel;
+        } else if (hasPower) {
+            return modelOn;
+        } else {
+            return modelOff;
+        }
+    }
 
-		this.modelsOff = ImmutableMap.copyOf( modelsOff );
-		this.modelsOn = ImmutableMap.copyOf( modelsOn );
-		this.modelsHasChannel = ImmutableMap.copyOf( modelsHasChannel );
-	}
-
-	public IPartModel getModel( PlaneConnections connections, boolean hasPower, boolean hasChannel )
-	{
-		if( hasPower && hasChannel )
-		{
-			return this.modelsHasChannel.get( connections );
-		}
-		else if( hasPower )
-		{
-			return this.modelsOn.get( connections );
-		}
-		else
-		{
-			return this.modelsOff.get( connections );
-		}
-	}
-
-	public List<IPartModel> getModels()
-	{
-		List<IPartModel> result = new ArrayList<>();
-		this.modelsOff.values().forEach( result::add );
-		this.modelsOn.values().forEach( result::add );
-		this.modelsHasChannel.values().forEach( result::add );
-		return result;
-	}
+    public List<IPartModel> getModels() {
+        return ImmutableList.of(modelOff, modelOn, modelHasChannel);
+    }
 
 }

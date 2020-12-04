@@ -18,149 +18,111 @@
 
 package appeng.client.render.effects;
 
+import com.mojang.blaze3d.vertex.IVertexBuilder;
 
-import net.minecraft.client.particle.BreakingParticle;
+import net.minecraft.client.particle.IAnimatedSprite;
+import net.minecraft.client.particle.IParticleFactory;
 import net.minecraft.client.particle.IParticleRenderType;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.entity.Entity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.SpriteTexturedParticle;
+import net.minecraft.client.renderer.ActiveRenderInfo;
+import net.minecraft.client.world.ClientWorld;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.World;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 
-import appeng.api.util.AEPartLocation;
+@OnlyIn(Dist.CLIENT)
+public class EnergyFx extends SpriteTexturedParticle {
 
+    private final int startBlkX;
+    private final int startBlkY;
+    private final int startBlkZ;
 
-@OnlyIn( Dist.CLIENT )
-public class EnergyFx extends BreakingParticle
-{
+    public EnergyFx(final ClientWorld par1World, final double par2, final double par4, final double par6,
+            final IAnimatedSprite sprite) {
+        super(par1World, par2, par4, par6);
+        this.particleGravity = 0;
+        this.particleBlue = 1;
+        this.particleGreen = 1;
+        this.particleRed = 1;
+        this.particleAlpha = 1.4f;
+        this.particleScale = 3.5f;
+        this.selectSpriteRandomly(sprite);
 
-	// FIXME private final TextureAtlasSprite particleTextureIndex;
+        this.startBlkX = MathHelper.floor(this.posX);
+        this.startBlkY = MathHelper.floor(this.posY);
+        this.startBlkZ = MathHelper.floor(this.posZ);
+    }
 
-	private final int startBlkX;
-	private final int startBlkY;
-	private final int startBlkZ;
+    @Override
+    public IParticleRenderType getRenderType() {
+        return IParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
+    }
 
-	public EnergyFx( final World par1World, final double par2, final double par4, final double par6, final ItemStack par8Item )
-	{
-		super( par1World, par2, par4, par6, par8Item );
-		this.particleGravity = 0;
-		this.particleBlue = 1;
-		this.particleGreen = 1;
-		this.particleRed = 1;
-		this.particleAlpha = 1.4f;
-		this.particleScale = 3.5f;
-		// FIXME this.particleTextureIndex = ParticleTextures.BlockEnergyParticle;
+    @Override
+    public float getScale(float scaleFactor) {
+        return 0.1f * this.particleScale;
+    }
 
-		this.startBlkX = MathHelper.floor( this.posX );
-		this.startBlkY = MathHelper.floor( this.posY );
-		this.startBlkZ = MathHelper.floor( this.posZ );
-	}
+    @Override
+    public void renderParticle(IVertexBuilder buffer, ActiveRenderInfo renderInfo, float partialTicks) {
+        float x = (float) (this.prevPosX + (this.posX - this.prevPosX) * partialTicks);
+        float y = (float) (this.prevPosY + (this.posY - this.prevPosY) * partialTicks);
+        float z = (float) (this.prevPosZ + (this.posZ - this.prevPosZ) * partialTicks);
 
-// FIXME	@Override
-// FIXME	public int getFXLayer()
-// FIXME	{
-// FIXME		return 1;
-// FIXME	}
-// FIXME
-// FIXME	@Override
-// FIXME	public IParticleRenderType getRenderType() {
-// FIXME		// TODO: FIXME
-// FIXME		return IParticleRenderType.NO_RENDER;
-// FIXME	}
-// FIXME
-// FIXME	@Override
-// FIXME	public void renderParticle( final BufferBuilder par1Tessellator, final Entity p_180434_2_, final float partialTicks, final float par3, final float par4, final float par5, final float par6, final float par7 )
-// FIXME	{
-// FIXME		final float f6 = this.particleTextureIndex.getMinU();
-// FIXME		final float f7 = this.particleTextureIndex.getMaxU();
-// FIXME		final float f8 = this.particleTextureIndex.getMinV();
-// FIXME		final float f9 = this.particleTextureIndex.getMaxV();
-// FIXME		final float f10 = 0.1F * this.particleScale;
-// FIXME
-// FIXME		final float f11 = (float) ( this.prevPosX + ( this.getPosX() - this.prevPosX ) * partialTicks - interpPosX );
-// FIXME		final float f12 = (float) ( this.prevPosY + ( this.getPosY() - this.prevPosY ) * partialTicks - interpPosY );
-// FIXME		final float f13 = (float) ( this.prevPosZ + ( this.getPosZ() - this.prevPosZ ) * partialTicks - interpPosZ );
-// FIXME
-// FIXME		final int blkX = MathHelper.floor( this.getPosX() );
-// FIXME		final int blkY = MathHelper.floor( this.getPosY() );
-// FIXME		final int blkZ = MathHelper.floor( this.getPosZ() );
-// FIXME
-// FIXME		if( blkX == this.startBlkX && blkY == this.startBlkY && blkZ == this.startBlkZ )
-// FIXME		{
-// FIXME			int i = this.getBrightnessForRender( partialTicks );
-// FIXME			int j = i >> 16 & 65535;
-// FIXME			int k = i & 65535;
-// FIXME
-// FIXME			final float f14 = 1.0F;
-// FIXME			par1Tessellator.pos( f11 - par3 * f10 - par6 * f10, f12 - par4 * f10, f13 - par5 * f10 - par7 * f10 )
-// FIXME					.tex( f7, f9 )
-// FIXME					.color( this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, this.particleAlpha )
-// FIXME					.lightmap( j, k )
-// FIXME					.endVertex();
-// FIXME			par1Tessellator.pos( f11 - par3 * f10 + par6 * f10, f12 + par4 * f10, f13 - par5 * f10 + par7 * f10 )
-// FIXME					.tex( f7, f8 )
-// FIXME					.color( this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, this.particleAlpha )
-// FIXME					.lightmap( j, k )
-// FIXME					.endVertex();
-// FIXME			par1Tessellator.pos( f11 + par3 * f10 + par6 * f10, f12 + par4 * f10, f13 + par5 * f10 + par7 * f10 )
-// FIXME					.tex( f6, f8 )
-// FIXME					.color( this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, this.particleAlpha )
-// FIXME					.lightmap( j, k )
-// FIXME					.endVertex();
-// FIXME			par1Tessellator.pos( f11 + par3 * f10 - par6 * f10, f12 - par4 * f10, f13 + par5 * f10 - par7 * f10 )
-// FIXME					.tex( f6, f9 )
-// FIXME					.color( this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, this.particleAlpha )
-// FIXME					.lightmap( j, k )
-// FIXME					.endVertex();
-// FIXME		}
-// FIXME	}
-// FIXME
-			public void fromItem( final AEPartLocation d )
-			{
-				this.posX += 0.2 * d.xOffset;
-				this.posY += 0.2 * d.yOffset;
-				this.posZ += 0.2 * d.zOffset;
-				this.particleScale *= 0.8f;
-			}
-// FIXME
-// FIXME	@Override
-// FIXME	public void tick()
-// FIXME	{
-// FIXME		this.prevPosX = this.getPosX();
-// FIXME		this.prevPosY = this.getPosY();
-// FIXME		this.prevPosZ = this.getPosZ();
-// FIXME
-// FIXME		if( this.age++ >= this.maxAge )
-// FIXME		{
-// FIXME			this.setExpired();
-// FIXME		}
-// FIXME
-// FIXME		this.motionY -= 0.04D * this.particleGravity;
-// FIXME		this.move( this.motionX, this.motionY, this.motionZ );
-// FIXME		this.motionX *= 0.9800000190734863D;
-// FIXME		this.motionY *= 0.9800000190734863D;
-// FIXME		this.motionZ *= 0.9800000190734863D;
-// FIXME
-// FIXME		this.particleScale *= 0.89f;
-// FIXME		this.particleAlpha *= 0.89f;
-// FIXME	}
-// FIXME
-	public void setMotionX( float motionX )
-	{
-		this.motionX = motionX;
-	}
+        final int blkX = MathHelper.floor(x);
+        final int blkY = MathHelper.floor(y);
+        final int blkZ = MathHelper.floor(z);
 
-	public void setMotionY( float motionY )
-	{
-		this.motionY = motionY;
-	}
+        if (blkX == this.startBlkX && blkY == this.startBlkY && blkZ == this.startBlkZ) {
+            super.renderParticle(buffer, renderInfo, partialTicks);
+        }
+    }
 
-	public void setMotionZ( float motionZ )
-	{
-		this.motionZ = motionZ;
-	}
+    @Override
+    public void tick() {
+        super.tick();
+        this.onGround = false;
+
+        this.particleScale *= 0.89f;
+        this.particleAlpha *= 0.89f;
+    }
+
+    public void setMotionX(float motionX) {
+        this.motionX = motionX;
+    }
+
+    public void setMotionY(float motionY) {
+        this.motionY = motionY;
+    }
+
+    public void setMotionZ(float motionZ) {
+        this.motionZ = motionZ;
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    public static class Factory implements IParticleFactory<EnergyParticleData> {
+        private final IAnimatedSprite spriteSet;
+
+        public Factory(IAnimatedSprite spriteSet) {
+            this.spriteSet = spriteSet;
+        }
+
+        @Override
+        public Particle makeParticle(EnergyParticleData data, ClientWorld worldIn, double x, double y, double z,
+                double xSpeed, double ySpeed, double zSpeed) {
+            EnergyFx result = new EnergyFx(worldIn, x, y, z, spriteSet);
+            result.setMotionX((float) xSpeed);
+            result.setMotionY((float) ySpeed);
+            result.setMotionZ((float) zSpeed);
+            if (data.forItem) {
+                result.posX += -0.2 * data.direction.xOffset;
+                result.posY += -0.2 * data.direction.yOffset;
+                result.posZ += -0.2 * data.direction.zOffset;
+                result.particleScale *= 0.8f;
+            }
+            return result;
+        }
+    }
+
 }

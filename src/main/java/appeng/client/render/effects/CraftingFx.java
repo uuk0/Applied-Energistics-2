@@ -18,158 +18,126 @@
 
 package appeng.client.render.effects;
 
+import com.mojang.blaze3d.vertex.IVertexBuilder;
 
-import net.minecraft.client.particle.BreakingParticle;
+import net.minecraft.client.particle.IAnimatedSprite;
+import net.minecraft.client.particle.IParticleFactory;
 import net.minecraft.client.particle.IParticleRenderType;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.entity.Entity;
-import net.minecraft.item.Item;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.SpriteTexturedParticle;
+import net.minecraft.client.renderer.ActiveRenderInfo;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.particles.BasicParticleType;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.World;
+import net.minecraft.util.math.vector.Vector3d;
+import net.minecraft.util.math.vector.Vector3f;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 
-import appeng.api.util.AEPartLocation;
-import appeng.client.render.textures.ParticleTextures;
+@OnlyIn(Dist.CLIENT)
+public class CraftingFx extends SpriteTexturedParticle {
 
+    // Offset relative to center of block, is the starting point of the particle
+    // movement
+    private final float offsetX;
+    private final float offsetY;
+    private final float offsetZ;
 
-@OnlyIn( Dist.CLIENT )
-public class CraftingFx extends BreakingParticle
-{
+    public CraftingFx(final ClientWorld par1World, final double x, final double y, final double z,
+            final IAnimatedSprite sprite) {
+        super(par1World, x, y, z);
 
-	private final TextureAtlasSprite particleTextureIndex;
+        // Pick a random normal, offset it by 0.35 and use that as the particle origin
+        Vector3f off = new Vector3f(rand.nextFloat() - 0.5f, rand.nextFloat() - 0.5f, rand.nextFloat() - 0.5f);
+        off.normalize();
+        off.mul(0.35f);
+        offsetX = off.getX();
+        offsetY = off.getY();
+        offsetZ = off.getZ();
 
-	private final int startBlkX;
-	private final int startBlkY;
-	private final int startBlkZ;
+        this.particleGravity = 0;
+        this.particleBlue = 1;
+        this.particleGreen = 0.9f;
+        this.particleRed = 1;
+        this.selectSpriteRandomly(sprite);
+        this.maxAge /= 1.2;
+        this.canCollide = false; // we're INSIDE the block anyway
+    }
 
-	public CraftingFx( final World par1World, final double par2, final double par4, final double par6, final Item par8Item )
-	{
-		super( par1World, par2, par4, par6, par8Item );
-		this.particleGravity = 0;
-		this.particleBlue = 1;
-		this.particleGreen = 0.9f;
-		this.particleRed = 1;
-		this.particleAlpha = 1.3f;
-		this.particleScale = 1.5f;
-		this.particleTextureIndex = ParticleTextures.BlockEnergyParticle;
-		this.maxAge /= 1.2;
+    @Override
+    public void renderParticle(IVertexBuilder buffer, ActiveRenderInfo renderInfo, float partialTicks) {
 
-		this.startBlkX = MathHelper.floor( this.getPosX() );
-		this.startBlkY = MathHelper.floor( this.getPosY() );
-		this.startBlkZ = MathHelper.floor( this.getPosZ() );
-	}
+        float f = (this.age + partialTicks) / this.maxAge;
 
-	@Override
-	public int getFXLayer()
-	{
-		return 1;
-	}
+        float offX = (float) posX + MathHelper.lerp(f, offsetX, 0);
+        float offY = (float) posY + MathHelper.lerp(f, offsetY, 0);
+        float offZ = (float) posZ + MathHelper.lerp(f, offsetZ, 0);
+        float alpha = MathHelper.lerp(easeOutCirc(f), 1.3f, 0.1f);
+        float scale = MathHelper.lerp(easeOutCirc(f), 0.13f, 0.0f);
 
-	@Override
-	public IParticleRenderType getRenderType() {
-		// TODO: FIXME
-		return IParticleRenderType.NO_RENDER;
-	}
+        // I believe this particle is same as breaking particle, but should not exit the
+        // original block it was
+        // spawned in (which is encased in glass)
+        Vector3d Vector3d = renderInfo.getProjectedView();
+        offX -= Vector3d.x;
+        offY -= Vector3d.y;
+        offZ -= Vector3d.z;
 
-	@Override
-	public void renderParticle( final BufferBuilder par1Tessellator, final Entity p_180434_2_, final float partialTick, final float x, final float y, final float z, final float rx, final float rz )
-	{
-		if( partialTick < 0 || partialTick > 1 )
-		{
-			return;
-		}
+        Vector3f[] avector3f = new Vector3f[] { new Vector3f(-1.0F, -1.0F, 0.0F), new Vector3f(-1.0F, 1.0F, 0.0F),
+                new Vector3f(1.0F, 1.0F, 0.0F), new Vector3f(1.0F, -1.0F, 0.0F) };
 
-		final float f6 = this.particleTextureIndex.getMinU();
-		final float f7 = this.particleTextureIndex.getMaxU();
-		final float f8 = this.particleTextureIndex.getMinV();
-		final float f9 = this.particleTextureIndex.getMaxV();
-		final float scale = 0.1F * this.particleScale;
+        for (int i = 0; i < 4; ++i) {
+            Vector3f vector3f = avector3f[i];
+            vector3f.transform(renderInfo.getRotation());
+            vector3f.mul(scale);
+            vector3f.add(offX, offY, offZ);
+        }
 
-		float offX = (float) ( this.prevPosX + ( this.getPosX() - this.prevPosX ) * partialTick );
-		float offY = (float) ( this.prevPosY + ( this.getPosY() - this.prevPosY ) * partialTick );
-		float offZ = (float) ( this.prevPosZ + ( this.getPosZ() - this.prevPosZ ) * partialTick );
+        float minU = this.getMinU();
+        float maxU = this.getMaxU();
+        float minV = this.getMinV();
+        float maxV = this.getMaxV();
+        int j = 15728880; // full brightness
+        buffer.pos(avector3f[0].getX(), avector3f[0].getY(), avector3f[0].getZ()).tex(maxU, maxV)
+                .color(this.particleRed, this.particleGreen, this.particleBlue, alpha).lightmap(j).endVertex();
+        buffer.pos(avector3f[1].getX(), avector3f[1].getY(), avector3f[1].getZ()).tex(maxU, minV)
+                .color(this.particleRed, this.particleGreen, this.particleBlue, alpha).lightmap(j).endVertex();
+        buffer.pos(avector3f[2].getX(), avector3f[2].getY(), avector3f[2].getZ()).tex(minU, minV)
+                .color(this.particleRed, this.particleGreen, this.particleBlue, alpha).lightmap(j).endVertex();
+        buffer.pos(avector3f[3].getX(), avector3f[3].getY(), avector3f[3].getZ()).tex(minU, maxV)
+                .color(this.particleRed, this.particleGreen, this.particleBlue, alpha).lightmap(j).endVertex();
+    }
 
-		final int blkX = MathHelper.floor( offX );
-		final int blkY = MathHelper.floor( offY );
-		final int blkZ = MathHelper.floor( offZ );
-		if( blkX == this.startBlkX && blkY == this.startBlkY && blkZ == this.startBlkZ )
-		{
-			offX -= interpPosX;
-			offY -= interpPosY;
-			offZ -= interpPosZ;
+    // https://easings.net/#easeOutCirc
+    private static float easeOutCirc(float x) {
+        return (float) Math.sqrt(1 - Math.pow(x - 1, 2));
+    }
 
-			int i = this.getBrightnessForRender( partialTick );
-			int j = i >> 16 & 65535;
-			int k = i & 65535;
+    @Override
+    public IParticleRenderType getRenderType() {
+        return IParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
+    }
 
-			// AELog.info( "" + partialTick );
-			final float f14 = 1.0F;
-			par1Tessellator.pos( offX - x * scale - rx * scale, offY - y * scale, offZ - z * scale - rz * scale )
-					.tex( f7, f9 )
-					.color( this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, this.particleAlpha )
-					.lightmap( j, k )
-					.endVertex();
-			par1Tessellator.pos( offX - x * scale + rx * scale, offY + y * scale, offZ - z * scale + rz * scale )
-					.tex( f7, f8 )
-					.color( this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, this.particleAlpha )
-					.lightmap( j, k )
-					.endVertex();
-			par1Tessellator.pos( offX + x * scale + rx * scale, offY + y * scale, offZ + z * scale + rz * scale )
-					.tex( f6, f8 )
-					.color( this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, this.particleAlpha )
-					.lightmap( j, k )
-					.endVertex();
-			par1Tessellator.pos( offX + x * scale - rx * scale, offY - y * scale, offZ + z * scale - rz * scale )
-					.tex( f6, f9 )
-					.color( this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, this.particleAlpha )
-					.lightmap( j, k )
-					.endVertex();
-		}
-	}
+    @Override
+    public void tick() {
+        if (this.age++ >= this.maxAge) {
+            this.setExpired();
+        }
+    }
 
-	public void fromItem( final AEPartLocation d )
-	{
-		this.getPosX() += 0.2 * d.xOffset;
-		this.getPosY() += 0.2 * d.yOffset;
-		this.getPosZ() += 0.2 * d.zOffset;
-		this.particleScale *= 0.8f;
-	}
+    @OnlyIn(Dist.CLIENT)
+    public static class Factory implements IParticleFactory<BasicParticleType> {
+        private final IAnimatedSprite spriteSet;
 
-	@Override
-	public void tick()
-	{
-		this.prevPosX = this.getPosX();
-		this.prevPosY = this.getPosY();
-		this.prevPosZ = this.getPosZ();
+        public Factory(IAnimatedSprite spriteSet) {
+            this.spriteSet = spriteSet;
+        }
 
-		if( this.age++ >= this.maxAge )
-		{
-			this.setExpired();
-		}
+        @Override
+        public Particle makeParticle(BasicParticleType data, ClientWorld worldIn, double x, double y, double z,
+                double xSpeed, double ySpeed, double zSpeed) {
+            return new CraftingFx(worldIn, x, y, z, spriteSet);
+        }
+    }
 
-		this.motionY -= 0.04D * this.particleGravity;
-		this.move( this.motionX, this.motionY, this.motionZ );
-		this.motionX *= 0.9800000190734863D;
-		this.motionY *= 0.9800000190734863D;
-		this.motionZ *= 0.9800000190734863D;
-		this.particleScale *= 0.51f;
-		this.particleAlpha *= 0.51f;
-	}
-
-	public void setMotionX( float motionX )
-	{
-		this.motionX = motionX;
-	}
-
-	public void setMotionY( float motionY )
-	{
-		this.motionY = motionY;
-	}
-
-	public void setMotionZ( float motionZ )
-	{
-		this.motionZ = motionZ;
-	}
 }

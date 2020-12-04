@@ -18,7 +18,6 @@
 
 package appeng.block;
 
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
@@ -26,294 +25,262 @@ import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import appeng.client.render.FacingToRotation;
 import com.google.common.collect.Lists;
 
+import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.DyeColor;
-import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.state.EnumProperty;
-import net.minecraft.state.StateContainer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ActionResultType;
-import net.minecraft.util.Direction;
 import net.minecraft.util.Hand;
-import net.minecraft.util.NonNullList;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.BlockRayTraceResult;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.world.IBlockReader;
-import net.minecraft.world.IWorld;
 import net.minecraft.world.World;
-import net.minecraftforge.client.model.data.ModelProperty;
 import net.minecraftforge.items.ItemHandlerHelper;
 
 import appeng.api.implementations.items.IMemoryCard;
 import appeng.api.implementations.items.MemoryCardMessages;
-import appeng.api.implementations.tiles.IColorableTile;
-import appeng.api.util.AEColor;
 import appeng.api.util.IOrientable;
-import appeng.tile.AEBaseInvTile;
-import appeng.tile.AEBaseTile;
+import appeng.block.networking.CableBusBlock;
+import appeng.tile.AEBaseInvTileEntity;
+import appeng.tile.AEBaseTileEntity;
+import appeng.tile.networking.CableBusTileEntity;
+import appeng.tile.storage.SkyChestTileEntity;
 import appeng.util.Platform;
 import appeng.util.SettingsFrom;
 
+public abstract class AEBaseTileBlock<T extends AEBaseTileEntity> extends AEBaseBlock {
 
-public abstract class AEBaseTileBlock<T extends AEBaseTile> extends AEBaseBlock
-{
+    @Nonnull
+    private Class<T> tileEntityClass;
+    @Nonnull
+    private Supplier<T> tileEntityFactory;
 
-	public static final ModelProperty<Direction> FORWARD = new ModelProperty<>();
-	public static final ModelProperty<Direction> UP = new ModelProperty<>();
+    public AEBaseTileBlock(final AbstractBlock.Properties props) {
+        super(props);
+    }
 
-	@Nonnull
-	private Class<T> tileEntityClass;
-	@Nonnull
-	private Supplier<T> tileEntityFactory;
+    // TODO : Was this change needed?
+    public void setTileEntity(final Class<T> tileEntityClass, Supplier<T> factory) {
+        this.tileEntityClass = tileEntityClass;
+        this.tileEntityFactory = factory;
+        this.setInventory(AEBaseInvTileEntity.class.isAssignableFrom(tileEntityClass));
+    }
 
-	public AEBaseTileBlock( final Block.Properties props )
-	{
-		super( props );
-	}
+    @Override
+    public boolean hasTileEntity(BlockState state) {
+        return this.hasBlockTileEntity();
+    }
 
-	// TODO : Was this change needed?
-	public void setTileEntity( final Class<T> tileEntityClass, Supplier<T> factory )
-	{
-		this.tileEntityClass = tileEntityClass;
-		this.tileEntityFactory = factory;
-		this.setInventory( AEBaseInvTile.class.isAssignableFrom( tileEntityClass ) );
-	}
+    private boolean hasBlockTileEntity() {
+        return true;
+    }
 
-	@Override
-	public boolean hasTileEntity( BlockState state )
-	{
-		return this.hasBlockTileEntity();
-	}
+    public Class<T> getTileEntityClass() {
+        return this.tileEntityClass;
+    }
 
-	private boolean hasBlockTileEntity()
-	{
-		return true;
-	}
+    @Nullable
+    public T getTileEntity(final IBlockReader w, final int x, final int y, final int z) {
+        return this.getTileEntity(w, new BlockPos(x, y, z));
+    }
 
-	public Class<T> getTileEntityClass()
-	{
-		return this.tileEntityClass;
-	}
+    @Nullable
+    public T getTileEntity(final IBlockReader w, final BlockPos pos) {
+        if (!this.hasBlockTileEntity()) {
+            return null;
+        }
 
-	@Nullable
-	public T getTileEntity( final IBlockReader w, final int x, final int y, final int z )
-	{
-		return this.getTileEntity( w, new BlockPos( x, y, z ) );
-	}
+        final TileEntity te = w.getTileEntity(pos);
+        // FIXME: This gets called as part of building the block state cache
+        if (this.tileEntityClass != null && this.tileEntityClass.isInstance(te)) {
+            return this.tileEntityClass.cast(te);
+        }
 
-	@Nullable
-	public T getTileEntity( final IBlockReader w, final BlockPos pos )
-	{
-		if( !this.hasBlockTileEntity() )
-		{
-			return null;
-		}
+        return null;
+    }
 
-		final TileEntity te = w.getTileEntity( pos );
-		// FIXME: This gets called as part of building the block state cache
-		if( this.tileEntityClass != null && this.tileEntityClass.isInstance( te ) )
-		{
-			return this.tileEntityClass.cast(te);
-		}
+    @Override
+    public final TileEntity createTileEntity(BlockState state, IBlockReader world) {
+        return this.tileEntityFactory.get();
+    }
 
-		return null;
-	}
+    @Override
+    public void onReplaced(BlockState state, World w, BlockPos pos, BlockState newState, boolean isMoving) {
+        if (newState.getBlock() == state.getBlock()) {
+            return; // Just a block state change
+        }
 
-	@Override
-	public final TileEntity createTileEntity( BlockState state, IBlockReader world )
-	{
-		return this.tileEntityFactory.get();
-	}
+        final AEBaseTileEntity te = this.getTileEntity(w, pos);
+        if (te != null) {
+            final ArrayList<ItemStack> drops = new ArrayList<>();
+            if (te.dropItems()) {
+                te.getDrops(w, pos, drops);
+            } else {
+                te.getNoDrops(w, pos, drops);
+            }
 
-	@Override
-	public void onReplaced(BlockState state, World w, BlockPos pos, BlockState newState, boolean isMoving) {
+            // Cry ;_; ...
+            Platform.spawnDrops(w, pos, drops);
+        }
 
-		final AEBaseTile te = this.getTileEntity( w, pos );
-		if( te != null )
-		{
-			final ArrayList<ItemStack> drops = new ArrayList<>();
-			if( te.dropItems() )
-			{
-				te.getDrops( w, pos, drops );
-			}
-			else
-			{
-				te.getNoDrops( w, pos, drops );
-			}
+        // super will remove the TE, as it is not an instance of BlockContainer
+        super.onReplaced(state, w, pos, newState, isMoving);
+    }
 
-			// Cry ;_; ...
-			Platform.spawnDrops( w, pos, drops );
-		}
+    @Override
+    public int getComparatorInputOverride(BlockState state, final World w, final BlockPos pos) {
+        final TileEntity te = this.getTileEntity(w, pos);
+        if (te instanceof AEBaseInvTileEntity) {
+            AEBaseInvTileEntity invTile = (AEBaseInvTileEntity) te;
+            if (invTile.getInternalInventory().getSlots() > 0) {
+                return ItemHandlerHelper.calcRedstoneFromInventory(invTile.getInternalInventory());
+            }
+        }
+        return 0;
+    }
 
-		// super will remove the TE, as it is not an instance of BlockContainer
-		super.onReplaced( state, w, pos, newState, isMoving );
-	}
+    @Override
+    public boolean eventReceived(final BlockState state, final World worldIn, final BlockPos pos, final int eventID,
+            final int eventParam) {
+        super.eventReceived(state, worldIn, pos, eventID, eventParam);
+        final TileEntity tileentity = worldIn.getTileEntity(pos);
+        return tileentity != null ? tileentity.receiveClientEvent(eventID, eventParam) : false;
+    }
 
-	@Override
-	public boolean recolorBlock( BlockState state, final IWorld world, final BlockPos pos, final Direction side, final DyeColor color )
-	{
-		final TileEntity te = this.getTileEntity( world, pos );
+    @Override
+    public void onBlockPlacedBy(final World w, final BlockPos pos, final BlockState state, final LivingEntity placer,
+            final ItemStack is) {
+        // Inherit the item stack's display name, but only if it's a user defined string
+        // rather
+        // than a translation component, since our custom naming cannot handle
+        // untranslated
+        // I18N strings and we would translate it using the server's locale :-(
+        AEBaseTileEntity te = this.getTileEntity(w, pos);
+        if (te != null && is.hasDisplayName()) {
+            ITextComponent displayName = is.getDisplayName();
+            if (displayName instanceof StringTextComponent) {
+                te.setName(((StringTextComponent) displayName).getText());
+            }
+        }
+    }
 
-		if( te instanceof IColorableTile )
-		{
-			final IColorableTile ct = (IColorableTile) te;
-			final AEColor c = ct.getColor();
-			final AEColor newColor = AEColor.values()[color.ordinal()];
+    @Override
+    public ActionResultType onBlockActivated(BlockState state, World world, BlockPos pos, PlayerEntity player,
+            Hand hand, BlockRayTraceResult hit) {
+        ItemStack heldItem;
+        if (player != null && !player.getHeldItem(hand).isEmpty()) {
+            heldItem = player.getHeldItem(hand);
 
-			if( c != newColor )
-			{
-				ct.recolourBlock( side, newColor, null );
-				return true;
-			}
-			return false;
-		}
+            if (Platform.isWrench(player, heldItem, pos) && player.isCrouching()) {
+                final BlockState blockState = world.getBlockState(pos);
+                final Block block = blockState.getBlock();
 
-		return super.recolorBlock( state, world, pos, side, color );
-	}
+                final AEBaseTileEntity tile = this.getTileEntity(world, pos);
 
-	@Override
-	public int getComparatorInputOverride( BlockState state, final World w, final BlockPos pos )
-	{
-		final TileEntity te = this.getTileEntity( w, pos );
-		if( te instanceof AEBaseInvTile )
-		{
-			AEBaseInvTile invTile = (AEBaseInvTile) te;
-			if( invTile.getInternalInventory().getSlots() > 0 )
-			{
-				return ItemHandlerHelper.calcRedstoneFromInventory( invTile.getInternalInventory() );
-			}
-		}
-		return 0;
-	}
+                if (tile == null) {
+                    return ActionResultType.FAIL;
+                }
 
-	@Override
-	public boolean eventReceived( final BlockState state, final World worldIn, final BlockPos pos, final int eventID, final int eventParam )
-	{
-		super.eventReceived( state, worldIn, pos, eventID, eventParam );
-		final TileEntity tileentity = worldIn.getTileEntity( pos );
-		return tileentity != null ? tileentity.receiveClientEvent( eventID, eventParam ) : false;
-	}
+                if (tile instanceof CableBusTileEntity || tile instanceof SkyChestTileEntity) {
+                    return ActionResultType.FAIL;
+                }
 
-	@Override
-	public void onBlockPlacedBy( final World w, final BlockPos pos, final BlockState state, final LivingEntity placer, final ItemStack is )
-	{
-		if( is.hasDisplayName() )
-		{
-			final TileEntity te = this.getTileEntity( w, pos );
-			if( te instanceof AEBaseTile )
-			{
-				// FIXME: Check if this will make it translated
-				( (AEBaseTile) w.getTileEntity( pos ) ).setName( is.getDisplayName().getString() );
-			}
-		}
-	}
+                final ItemStack[] itemDropCandidates = Platform.getBlockDrops(world, pos);
+                final ItemStack op = new ItemStack(this);
 
-	@Override
-	public ActionResultType onBlockActivated( BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockRayTraceResult hit )
-	{
-		ItemStack heldItem;
-		if( player != null && !player.getHeldItem( hand ).isEmpty() )
-		{
-			heldItem = player.getHeldItem( hand );
+                for (final ItemStack ol : itemDropCandidates) {
+                    if (Platform.itemComparisons().isEqualItemType(ol, op)) {
+                        final CompoundNBT tag = tile.downloadSettings(SettingsFrom.DISMANTLE_ITEM);
+                        if (tag != null) {
+                            ol.setTag(tag);
+                        }
+                    }
+                }
 
-			if( Platform.isWrench( player, heldItem, pos ) && player.isCrouching() )
-			{
-				final BlockState blockState = world.getBlockState( pos );
-				final Block block = blockState.getBlock();
+                if (block.removedByPlayer(blockState, world, pos, player, false, world.getFluidState(pos))) {
+                    final List<ItemStack> itemsToDrop = Lists.newArrayList(itemDropCandidates);
+                    Platform.spawnDrops(world, pos, itemsToDrop);
+                    world.removeBlock(pos, false);
+                }
 
-				final AEBaseTile tile = this.getTileEntity( world, pos );
+                return ActionResultType.FAIL;
+            }
 
-				if( tile == null )
-				{
-					return ActionResultType.FAIL;
-				}
+            if (heldItem.getItem() instanceof IMemoryCard && !(this instanceof CableBusBlock)) {
+                final IMemoryCard memoryCard = (IMemoryCard) heldItem.getItem();
+                final AEBaseTileEntity tileEntity = this.getTileEntity(world, pos);
 
-				// FIXME if( tile instanceof TileCableBus || tile instanceof TileSkyChest )
-				// {
-				// 	return ActionResultType.FAIL;
-				// }
+                if (tileEntity == null) {
+                    return ActionResultType.FAIL;
+                }
 
-				final ItemStack[] itemDropCandidates = Platform.getBlockDrops( world, pos );
-				final ItemStack op = new ItemStack( this );
+                final String name = this.getTranslationKey();
 
-				for( final ItemStack ol : itemDropCandidates )
-				{
-					if( Platform.itemComparisons().isEqualItemType( ol, op ) )
-					{
-						final CompoundNBT tag = tile.downloadSettings( SettingsFrom.DISMANTLE_ITEM );
-						if( tag != null )
-						{
-							ol.setTag( tag );
-						}
-					}
-				}
+                if (player.isCrouching()) {
+                    final CompoundNBT data = tileEntity.downloadSettings(SettingsFrom.MEMORY_CARD);
+                    if (data != null) {
+                        memoryCard.setMemoryCardContents(heldItem, name, data);
+                        memoryCard.notifyUser(player, MemoryCardMessages.SETTINGS_SAVED);
+                    }
+                } else {
+                    final String savedName = memoryCard.getSettingsName(heldItem);
+                    final CompoundNBT data = memoryCard.getData(heldItem);
 
-				if( block.removedByPlayer( blockState, world, pos, player, false, world.getFluidState(pos) ) )
-				{
-					final List<ItemStack> itemsToDrop = Lists.newArrayList( itemDropCandidates );
-					Platform.spawnDrops( world, pos, itemsToDrop );
-					world.removeBlock(pos, false);
-				}
+                    if (this.getTranslationKey().equals(savedName)) {
+                        tileEntity.uploadSettings(SettingsFrom.MEMORY_CARD, data);
+                        memoryCard.notifyUser(player, MemoryCardMessages.SETTINGS_LOADED);
+                    } else {
+                        memoryCard.notifyUser(player, MemoryCardMessages.INVALID_MACHINE);
+                    }
+                }
 
-				return ActionResultType.FAIL;
-			}
+                return ActionResultType.SUCCESS;
+            }
+        }
 
-			if( heldItem.getItem() instanceof IMemoryCard /* FIXME && !( this instanceof BlockCableBus ) */ )
-			{
-				final IMemoryCard memoryCard = (IMemoryCard) heldItem.getItem();
-				final AEBaseTile tileEntity = this.getTileEntity( world, pos );
+        return this.onActivated(world, pos, player, hand, player.getHeldItem(hand), hit);
+    }
 
-				if( tileEntity == null )
-				{
-					return ActionResultType.FAIL;
-				}
+    public ActionResultType onActivated(final World w, final BlockPos pos, final PlayerEntity player, final Hand hand,
+            final @Nullable ItemStack heldItem, final BlockRayTraceResult hit) {
+        return ActionResultType.PASS;
+    }
 
-				final String name = this.getTranslationKey();
+    @Override
+    public IOrientable getOrientable(final IBlockReader w, final BlockPos pos) {
+        return this.getTileEntity(w, pos);
+    }
 
-				if( player.isCrouching() )
-				{
-					final CompoundNBT data = tileEntity.downloadSettings( SettingsFrom.MEMORY_CARD );
-					if( data != null )
-					{
-						memoryCard.setMemoryCardContents( heldItem, name, data );
-						memoryCard.notifyUser( player, MemoryCardMessages.SETTINGS_SAVED );
-					}
-				}
-				else
-				{
-					final String savedName = memoryCard.getSettingsName( heldItem );
-					final CompoundNBT data = memoryCard.getData( heldItem );
+    /**
+     * Returns the BlockState based on the given BlockState while considering the state of the given TileEntity.
+     *
+     * If the given TileEntity is not of the right type for this block, the state is returned unchanged, this is also
+     * the case if the given block state does not belong to this block.
+     */
+    public final BlockState getTileEntityBlockState(BlockState current, TileEntity te) {
+        if (current.getBlock() != this || !tileEntityClass.isInstance(te)) {
+            return current;
+        }
 
-					if( this.getTranslationKey().equals( savedName ) )
-					{
-						tileEntity.uploadSettings( SettingsFrom.MEMORY_CARD, data );
-						memoryCard.notifyUser( player, MemoryCardMessages.SETTINGS_LOADED );
-					}
-					else
-					{
-						memoryCard.notifyUser( player, MemoryCardMessages.INVALID_MACHINE );
-					}
-				}
+        return updateBlockStateFromTileEntity(current, tileEntityClass.cast(te));
+    }
 
-				return ActionResultType.SUCCESS;
-			}
-		}
-
-		return this.onActivated( world, pos, player, hand, player.getHeldItem( hand ), hit );
-	}
-
-	@Override
-	public IOrientable getOrientable(final IBlockReader w, final BlockPos pos )
-	{
-		return this.getTileEntity( w, pos );
-	}
+    /**
+     * Reimplement this in subclasses to allow tile-entities to update the state of their block when their own state
+     * changes.
+     *
+     * It is guaranteed that te is not-null and the block of the given block state is this exact block instance.
+     */
+    protected BlockState updateBlockStateFromTileEntity(BlockState currentState, T te) {
+        return currentState;
+    }
 
 }

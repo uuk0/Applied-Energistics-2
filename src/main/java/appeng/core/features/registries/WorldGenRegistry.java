@@ -18,105 +18,77 @@
 
 package appeng.core.features.registries;
 
-
+import java.util.EnumMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
-import net.minecraft.world.World;
-import net.minecraft.world.dimension.Dimension;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.world.server.ServerWorld;
 
 import appeng.api.features.IWorldGen;
 
+public final class WorldGenRegistry implements IWorldGen {
 
-public final class WorldGenRegistry implements IWorldGen
-{
+    public static final WorldGenRegistry INSTANCE = new WorldGenRegistry();
 
-	public static final WorldGenRegistry INSTANCE = new WorldGenRegistry();
-	private final TypeSet[] types;
+    private final Map<WorldGenType, TypeSet> settings = new EnumMap<>(WorldGenType.class);
 
-	private WorldGenRegistry()
-	{
+    public WorldGenRegistry() {
+        for (WorldGenType type : WorldGenType.values()) {
+            settings.put(type, new TypeSet());
+        }
+    }
 
-		this.types = new TypeSet[WorldGenType.values().length];
+    @Override
+    public void enableWorldGenForDimension(WorldGenType type, ResourceLocation dimID) {
+    }
 
-		for( final WorldGenType type : WorldGenType.values() )
-		{
-			this.types[type.ordinal()] = new TypeSet();
-		}
-	}
+    @Override
+    public void disableWorldGenForDimension(WorldGenType type, ResourceLocation dimID) {
+    }
 
-	@Override
-	public void disableWorldGenForProviderID( WorldGenType type, Class<? extends Dimension> provider )
-	{
-		if( type == null )
-		{
-			throw new IllegalArgumentException( "Bad Type Passed" );
-		}
+    @Override
+    public boolean isWorldGenEnabled(WorldGenType type, ServerWorld w) {
+        return true;
+    }
 
-		if( provider == null )
-		{
-			throw new IllegalArgumentException( "Bad Provider Passed" );
-		}
+    @Override
+    public void disableWorldGenForBiome(final WorldGenType type, final ResourceLocation biomeId) {
+        Objects.requireNonNull(type);
+        Objects.requireNonNull(biomeId);
 
-		this.types[type.ordinal()].badProviders.add( provider );
-	}
+        settings.get(type).modBiomeBlacklist.add(biomeId);
+    }
 
-	@Override
-	public void enableWorldGenForDimension( final WorldGenType type, final int dimensionID )
-	{
-		if( type == null )
-		{
-			throw new IllegalArgumentException( "Bad Type Passed" );
-		}
+    @Override
+    public boolean isWorldGenDisabledForBiome(WorldGenType type, ResourceLocation biomeId) {
+        TypeSet typeSettings = settings.get(type);
+        return typeSettings.configBiomeBlacklist.contains(biomeId)
+                || typeSettings.modBiomeBlacklist.contains(biomeId);
+    }
 
-		this.types[type.ordinal()].enabledDimensions.add( dimensionID );
-	}
+    public void setConfigBlacklists(
+            List<ResourceLocation> quartzBiomeBlacklist,
+            List<ResourceLocation> meteoriteBiomeBlacklist) {
+        settings.get(WorldGenType.CERTUS_QUARTZ).configBiomeBlacklist.clear();
+        settings.get(WorldGenType.CERTUS_QUARTZ).configBiomeBlacklist.addAll(quartzBiomeBlacklist);
+        settings.get(WorldGenType.CHARGED_CERTUS_QUARTZ).configBiomeBlacklist.clear();
+        settings.get(WorldGenType.CHARGED_CERTUS_QUARTZ).configBiomeBlacklist.addAll(quartzBiomeBlacklist);
+        settings.get(WorldGenType.METEORITES).configBiomeBlacklist.clear();
+        settings.get(WorldGenType.METEORITES).configBiomeBlacklist.addAll(meteoriteBiomeBlacklist);
+    }
 
-	@Override
-	public void disableWorldGenForDimension( final WorldGenType type, final int dimensionID )
-	{
-		if( type == null )
-		{
-			throw new IllegalArgumentException( "Bad Type Passed" );
-		}
-
-		this.types[type.ordinal()].badDimensions.add( dimensionID );
-	}
-
-	@Override
-	public boolean isWorldGenEnabled( final WorldGenType type, final World w )
-	{
-		if( type == null )
-		{
-			throw new IllegalArgumentException( "Bad Type Passed" );
-		}
-
-		if( w == null )
-		{
-			throw new IllegalArgumentException( "Bad Provider Passed" );
-		}
-
-		final boolean isBadProvider = this.types[type.ordinal()].badProviders.contains( w.dimension.getClass() );
-		final boolean isBadDimension = this.types[type.ordinal()].badDimensions.contains( w.dimension.getDimension() );
-		final boolean isGoodDimension = this.types[type.ordinal()].enabledDimensions.contains( w.dimension.getDimension() );
-
-		if( isBadProvider || isBadDimension )
-		{
-			return false;
-		}
-
-		if( !isGoodDimension && type == WorldGenType.METEORITES )
-		{
-			return false;
-		}
-
-		return true;
-	}
-
-	private static class TypeSet
-	{
-
-		final HashSet<Class<? extends Dimension>> badProviders = new HashSet<>();
-		final HashSet<Integer> badDimensions = new HashSet<>();
-		final HashSet<Integer> enabledDimensions = new HashSet<>();
-	}
+    private static class TypeSet {
+        /**
+         * Biomes blacklisted by other mods.
+         */
+        final Set<ResourceLocation> modBiomeBlacklist = new HashSet<>();
+        /**
+         * Biomes blacklisted in the user's config.
+         */
+        final Set<ResourceLocation> configBiomeBlacklist = new HashSet<>();
+    }
 }

@@ -18,30 +18,24 @@
 
 package appeng.me.cache.helpers;
 
-
 import appeng.api.networking.IGridConnection;
-import appeng.parts.p2p.PartP2PTunnelME;
+import appeng.parts.p2p.MEP2PTunnelPart;
 
+public class TunnelConnection {
 
-public class TunnelConnection
-{
+    private final MEP2PTunnelPart tunnel;
+    private final IGridConnection c;
 
-	private final PartP2PTunnelME tunnel;
-	private final IGridConnection c;
+    public TunnelConnection(final MEP2PTunnelPart t, final IGridConnection con) {
+        this.tunnel = t;
+        this.c = con;
+    }
 
-	public TunnelConnection( final PartP2PTunnelME t, final IGridConnection con )
-	{
-		this.tunnel = t;
-		this.c = con;
-	}
+    public IGridConnection getConnection() {
+        return this.c;
+    }
 
-	public IGridConnection getConnection()
-	{
-		return this.c;
-	}
-
-	public PartP2PTunnelME getTunnel()
-	{
-		return this.tunnel;
-	}
+    public MEP2PTunnelPart getTunnel() {
+        return this.tunnel;
+    }
 }

@@ -18,128 +18,123 @@
 
 package appeng.core.worlddata;
 
-
-import com.google.common.base.Preconditions;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.dimension.DimensionType;
-import net.minecraft.world.server.ServerWorld;
+import java.util.concurrent.ThreadFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import com.google.common.base.Preconditions;
+
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.server.ServerWorld;
+
+import appeng.services.CompassService;
+import appeng.services.compass.CompassThreadFactory;
 
 /**
  * Singleton access to anything related to world-based data.
  *
  * Data will change depending which world is loaded. Will probably not affect SMP at all since only one world is loaded,
- * but SSP more, cause they play on
- * different worlds.
+ * but SSP more, cause they play on different worlds.
  *
  * @author thatsIch
  * @version rv3 - 02.11.2015
  * @since rv3 30.05.2015
  */
-public final class WorldData implements IWorldData
-{
+public final class WorldData implements IWorldData {
 
-	/**
-	 * Is null while no MinecraftServer exists.
-	 */
-	@Nullable
-	private static IWorldData instance;
+    /**
+     * Is null while no MinecraftServer exists.
+     */
+    @Nullable
+    private static IWorldData instance;
 
-	private final IWorldPlayerData playerData;
-	private final IWorldGridStorageData storageData;
-	private final IWorldCompassData compassData;
-	private final IWorldSpawnData spawnData;
+    @Nullable
+    private static MinecraftServer server;
 
-	private WorldData( @Nonnull final MinecraftServer server )
-	{
-		Preconditions.checkNotNull( server );
+    private final IWorldPlayerData playerData;
+    private final IWorldGridStorageData storageData;
+    private final IWorldCompassData compassData;
 
-		// Attach shared data to the server's overworld dimension
-		ServerWorld overworld = server.getWorld(DimensionType.OVERWORLD);
-		if (overworld == null) {
-			throw new IllegalStateException("The server doesn't have an Overworld dimension we could store our data on!");
-		}
+    private WorldData(@Nonnull final ServerWorld overworld) {
+        Preconditions.checkNotNull(overworld);
 
-		final PlayerData playerData = overworld.getSavedData().getOrCreate(PlayerData::new, PlayerData.NAME);
-		final StorageData storageData = overworld.getSavedData().getOrCreate(StorageData::new, StorageData.NAME);
+        // Attach shared data to the server's overworld dimension
+        if (overworld.getDimensionKey() != ServerWorld.OVERWORLD) {
+            throw new IllegalStateException("The server doesn't have an overworld we could store our data on!");
+        }
 
-//		final ThreadFactory compassThreadFactory = new CompassThreadFactory();
-//		final CompassService compassService = new CompassService( this.compassDirectory, compassThreadFactory );
-//		final CompassData compassData = new CompassData( this.compassDirectory, compassService );
-//
-//		final IWorldSpawnData spawnData = new SpawnData( this.spawnDirectory );
+        final PlayerData playerData = overworld.getSavedData().getOrCreate(PlayerData::new, PlayerData.NAME);
+        final StorageData storageData = overworld.getSavedData().getOrCreate(StorageData::new, StorageData.NAME);
 
-		this.playerData = playerData;
-		this.storageData = storageData;
-		this.compassData = null; // compassData;
-		this.spawnData = null; // spawnData;
-	}
+        final ThreadFactory compassThreadFactory = new CompassThreadFactory();
+        final CompassService compassService = new CompassService(server, compassThreadFactory);
+        final CompassData compassData = new CompassData(compassService);
 
-	/**
-	 * @return ae2 data related to a specific world
-	 *
-	 * @deprecated do not use singletons which are dependent on specific world state
-	 */
-	@Deprecated
-	@Nonnull
-	public static IWorldData instance()
-	{
-		return instance;
-	}
+        this.playerData = playerData;
+        this.storageData = storageData;
+        this.compassData = compassData;
 
-	/**
-	 * Requires to start up from external from here
-	 *
-	 * drawback of the singleton build style
-	 *
-	 * @param server
-	 */
-	public static void onServerAboutToStart( MinecraftServer server )
-	{
-		instance = new WorldData(server);
-	}
+    }
 
-	@Override
-	public void onServerStopping()
-	{
-		compassData.service().kill();
-	}
+    /**
+     * @return ae2 data related to a specific world
+     *
+     * @deprecated do not use singletons which are dependent on specific world state
+     */
+    @Deprecated
+    @Nonnull
+    public synchronized static IWorldData instance() {
+        // The overworld is lazily loaded, meaning we cannot access it right away
+        // when the server is starting, but the first time the instance is accessed,
+        // we create the actual world data
+        if (instance == null) {
+            if (server == null) {
+                throw new IllegalStateException("No server set.");
+            }
 
-	@Override
-	public void onServerStoppped()
-	{
-		Preconditions.checkNotNull( instance );
-		instance = null;
-	}
+            ServerWorld overworld = server.getWorld(ServerWorld.OVERWORLD);
+            instance = new WorldData(overworld);
+        }
+        return instance;
+    }
 
-	@Nonnull
-	@Override
-	public IWorldGridStorageData storageData()
-	{
-		return this.storageData;
-	}
+    /**
+     * Requires to start up from external from here
+     *
+     * drawback of the singleton build style
+     */
+    public static void onServerStarting(MinecraftServer server) {
+        WorldData.server = server;
+    }
 
-	@Nonnull
-	@Override
-	public IWorldPlayerData playerData()
-	{
-		return this.playerData;
-	}
+    @Override
+    public void onServerStopping() {
+        compassData.service().kill();
+    }
 
-	@Nonnull
-	@Override
-	public IWorldCompassData compassData()
-	{
-		return this.compassData;
-	}
+    @Override
+    public void onServerStoppped() {
+        Preconditions.checkNotNull(server);
+        instance = null;
+        WorldData.server = null;
+    }
 
-	@Nonnull
-	@Override
-	public IWorldSpawnData spawnData()
-	{
-		return this.spawnData;
-	}
+    @Nonnull
+    @Override
+    public IWorldGridStorageData storageData() {
+        return this.storageData;
+    }
+
+    @Nonnull
+    @Override
+    public IWorldPlayerData playerData() {
+        return this.playerData;
+    }
+
+    @Nonnull
+    @Override
+    public IWorldCompassData compassData() {
+        return this.compassData;
+    }
 }

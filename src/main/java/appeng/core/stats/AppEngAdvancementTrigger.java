@@ -18,7 +18,6 @@
 
 package appeng.core.stats;
 
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -26,151 +25,140 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonObject;
 
+import net.minecraft.advancements.ICriterionInstance;
 import net.minecraft.advancements.ICriterionTrigger;
 import net.minecraft.advancements.PlayerAdvancements;
-import net.minecraft.advancements.criterion.CriterionInstance;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.loot.ConditionArrayParser;
+import net.minecraft.loot.ConditionArraySerializer;
 import net.minecraft.util.ResourceLocation;
 
 import appeng.core.AppEng;
 
+public class AppEngAdvancementTrigger
+        implements ICriterionTrigger<AppEngAdvancementTrigger.Instance>, IAdvancementTrigger {
+    private final ResourceLocation ID;
+    private final Map<PlayerAdvancements, AppEngAdvancementTrigger.Listeners> listeners = new HashMap<>();
 
-public class AppEngAdvancementTrigger implements ICriterionTrigger<AppEngAdvancementTrigger.Instance>, IAdvancementTrigger
-{
-	private final ResourceLocation ID;
-	private final Map<PlayerAdvancements, AppEngAdvancementTrigger.Listeners> listeners = new HashMap<>();
+    public AppEngAdvancementTrigger(String parString) {
+        super();
+        this.ID = new ResourceLocation(AppEng.MOD_ID, parString);
+    }
 
-	public AppEngAdvancementTrigger( String parString )
-	{
-		super();
-		this.ID = new ResourceLocation( AppEng.MOD_ID, parString );
-	}
+    @Override
+    public ResourceLocation getId() {
+        return this.ID;
+    }
 
-	@Override
-	public ResourceLocation getId()
-	{
-		return this.ID;
-	}
+    @Override
+    public void addListener(PlayerAdvancements playerAdvancementsIn,
+            ICriterionTrigger.Listener<AppEngAdvancementTrigger.Instance> listener) {
+        AppEngAdvancementTrigger.Listeners l = this.listeners.get(playerAdvancementsIn);
 
-	@Override
-	public void addListener( PlayerAdvancements playerAdvancementsIn, ICriterionTrigger.Listener<AppEngAdvancementTrigger.Instance> listener )
-	{
-		AppEngAdvancementTrigger.Listeners l = this.listeners.get( playerAdvancementsIn );
+        if (l == null) {
+            l = new AppEngAdvancementTrigger.Listeners(playerAdvancementsIn);
+            this.listeners.put(playerAdvancementsIn, l);
+        }
 
-		if( l == null )
-		{
-			l = new AppEngAdvancementTrigger.Listeners( playerAdvancementsIn );
-			this.listeners.put( playerAdvancementsIn, l );
-		}
+        l.add(listener);
+    }
 
-		l.add( listener );
-	}
+    @Override
+    public void removeListener(PlayerAdvancements playerAdvancementsIn,
+            ICriterionTrigger.Listener<AppEngAdvancementTrigger.Instance> listener) {
+        AppEngAdvancementTrigger.Listeners l = this.listeners.get(playerAdvancementsIn);
 
-	@Override
-	public void removeListener( PlayerAdvancements playerAdvancementsIn, ICriterionTrigger.Listener<AppEngAdvancementTrigger.Instance> listener )
-	{
-		AppEngAdvancementTrigger.Listeners l = this.listeners.get( playerAdvancementsIn );
+        if (l != null) {
+            l.remove(listener);
 
-		if( l != null )
-		{
-			l.remove( listener );
+            if (l.isEmpty()) {
+                this.listeners.remove(playerAdvancementsIn);
+            }
+        }
+    }
 
-			if( l.isEmpty() )
-			{
-				this.listeners.remove( playerAdvancementsIn );
-			}
-		}
-	}
+    @Override
+    public void removeAllListeners(PlayerAdvancements playerAdvancementsIn) {
+        this.listeners.remove(playerAdvancementsIn);
+    }
 
-	@Override
-	public void removeAllListeners( PlayerAdvancements playerAdvancementsIn )
-	{
-		this.listeners.remove( playerAdvancementsIn );
-	}
+    @Override
+    public Instance deserialize(JsonObject object, ConditionArrayParser conditions) {
+        return new AppEngAdvancementTrigger.Instance(this.getId());
+    }
 
-	@Override
-	public AppEngAdvancementTrigger.Instance deserializeInstance( JsonObject json, JsonDeserializationContext context )
-	{
-		return new AppEngAdvancementTrigger.Instance( this.getId() );
-	}
+    @Override
+    public void trigger(ServerPlayerEntity parPlayer) {
+        AppEngAdvancementTrigger.Listeners l = this.listeners.get(parPlayer.getAdvancements());
 
-	@Override
-	public void trigger( ServerPlayerEntity parPlayer )
-	{
-		AppEngAdvancementTrigger.Listeners l = this.listeners.get( parPlayer.getAdvancements() );
+        if (l != null) {
+            l.trigger(parPlayer);
+        }
+    }
 
-		if( l != null )
-		{
-			l.trigger( parPlayer );
-		}
-	}
+    public static class Instance implements ICriterionInstance {
+        private final ResourceLocation id;
 
-	public static class Instance extends CriterionInstance
-	{
-		public Instance( ResourceLocation parID )
-		{
-			super( parID );
-		}
+        public Instance(ResourceLocation id) {
+            this.id = id;
+        }
 
-		public boolean test()
-		{
-			return true;
-		}
-	}
+        public boolean test() {
+            return true;
+        }
 
-	static class Listeners
-	{
-		private final PlayerAdvancements playerAdvancements;
-		private final Set<ICriterionTrigger.Listener<AppEngAdvancementTrigger.Instance>> listeners = new HashSet<>();
+        @Override
+        public ResourceLocation getId() {
+            return id;
+        }
 
-		Listeners( PlayerAdvancements playerAdvancementsIn )
-		{
-			this.playerAdvancements = playerAdvancementsIn;
-		}
+        @Override
+        public JsonObject serialize(ConditionArraySerializer conditions) {
+            return new JsonObject();
+        }
+    }
 
-		public boolean isEmpty()
-		{
-			return this.listeners.isEmpty();
-		}
+    static class Listeners {
+        private final PlayerAdvancements playerAdvancements;
+        private final Set<ICriterionTrigger.Listener<AppEngAdvancementTrigger.Instance>> listeners = new HashSet<>();
 
-		public void add( ICriterionTrigger.Listener<AppEngAdvancementTrigger.Instance> listener )
-		{
-			this.listeners.add( listener );
-		}
+        Listeners(PlayerAdvancements playerAdvancementsIn) {
+            this.playerAdvancements = playerAdvancementsIn;
+        }
 
-		public void remove( ICriterionTrigger.Listener<AppEngAdvancementTrigger.Instance> listener )
-		{
-			this.listeners.remove( listener );
-		}
+        public boolean isEmpty() {
+            return this.listeners.isEmpty();
+        }
 
-		public void trigger( PlayerEntity player )
-		{
-			List<ICriterionTrigger.Listener<AppEngAdvancementTrigger.Instance>> list = null;
+        public void add(ICriterionTrigger.Listener<AppEngAdvancementTrigger.Instance> listener) {
+            this.listeners.add(listener);
+        }
 
-			for( ICriterionTrigger.Listener<AppEngAdvancementTrigger.Instance> listener : this.listeners )
-			{
-				if( listener.getCriterionInstance().test() )
-				{
-					if( list == null )
-					{
-						list = new ArrayList<>();
-					}
+        public void remove(ICriterionTrigger.Listener<AppEngAdvancementTrigger.Instance> listener) {
+            this.listeners.remove(listener);
+        }
 
-					list.add( listener );
-				}
-			}
+        public void trigger(PlayerEntity player) {
+            List<ICriterionTrigger.Listener<AppEngAdvancementTrigger.Instance>> list = null;
 
-			if( list != null )
-			{
-				for( ICriterionTrigger.Listener<AppEngAdvancementTrigger.Instance> l : list )
-				{
-					l.grantCriterion( this.playerAdvancements );
-				}
-			}
-		}
-	}
+            for (ICriterionTrigger.Listener<AppEngAdvancementTrigger.Instance> listener : this.listeners) {
+                if (listener.getCriterionInstance().test()) {
+                    if (list == null) {
+                        list = new ArrayList<>();
+                    }
+
+                    list.add(listener);
+                }
+            }
+
+            if (list != null) {
+                for (ICriterionTrigger.Listener<AppEngAdvancementTrigger.Instance> l : list) {
+                    l.grantCriterion(this.playerAdvancements);
+                }
+            }
+        }
+    }
 }

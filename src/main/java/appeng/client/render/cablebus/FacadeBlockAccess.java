@@ -18,73 +18,69 @@
 
 package appeng.client.render.cablebus;
 
-
 import javax.annotation.Nullable;
 
 import net.minecraft.block.BlockState;
-import net.minecraft.fluid.IFluidState;
+import net.minecraft.fluid.FluidState;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.Direction;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.ILightReader;
+import net.minecraft.world.IBlockDisplayReader;
 import net.minecraft.world.level.ColorResolver;
 import net.minecraft.world.lighting.WorldLightManager;
 
-
 /**
- * This is used to retrieve the ExtendedState of a block for facade rendering.
- * It fakes the block at BlockPos provided as the BlockState provided.
+ * This is used to retrieve the ExtendedState of a block for facade rendering. It fakes the block at BlockPos provided
+ * as the BlockState provided.
  *
  * @author covers1624
  */
-public class FacadeBlockAccess implements ILightReader
-{
+public class FacadeBlockAccess implements IBlockDisplayReader {
 
-	private final ILightReader world;
-	private final BlockPos pos;
-	private final Direction side;
-	private final BlockState state;
+    private final IBlockDisplayReader world;
+    private final BlockPos pos;
+    private final Direction side;
+    private final BlockState state;
 
-	public FacadeBlockAccess( ILightReader world, BlockPos pos, Direction side, BlockState state )
-	{
-		this.world = world;
-		this.pos = pos;
-		this.side = side;
-		this.state = state;
-	}
+    public FacadeBlockAccess(IBlockDisplayReader world, BlockPos pos, Direction side, BlockState state) {
+        this.world = world;
+        this.pos = pos;
+        this.side = side;
+        this.state = state;
+    }
 
-	@Nullable
-	@Override
-	public TileEntity getTileEntity( BlockPos pos )
-	{
-		return this.world.getTileEntity( pos );
-	}
+    @Nullable
+    @Override
+    public TileEntity getTileEntity(BlockPos pos) {
+        return this.world.getTileEntity(pos);
+    }
 
-	@Override
-	public BlockState getBlockState( BlockPos pos )
-	{
-		if( this.pos == pos )
-		{
-			return this.state;
-		}
-		return this.world.getBlockState( pos );
-	}
+    @Override
+    public BlockState getBlockState(BlockPos pos) {
+        if (this.pos == pos) {
+            return this.state;
+        }
+        return this.world.getBlockState(pos);
+    }
 
-	@Override
-	public IFluidState getFluidState( BlockPos pos )
-	{
-		return world.getFluidState( pos );
-	}
+    @Override
+    public FluidState getFluidState(BlockPos pos) {
+        return world.getFluidState(pos);
+    }
 
-	@Override
-	public WorldLightManager getLightManager()
-	{
-		return world.getLightManager();
-	}
+    // This is for diffuse lighting
+    @Override
+    public float func_230487_a_(Direction p_230487_1_, boolean p_230487_2_) {
+        return world.func_230487_a_(p_230487_1_, p_230487_2_);
+    }
 
-	@Override
-	public int getBlockColor( BlockPos blockPosIn, ColorResolver colorResolverIn )
-	{
-		return world.getBlockColor( blockPosIn, colorResolverIn );
-	}
+    @Override
+    public WorldLightManager getLightManager() {
+        return world.getLightManager();
+    }
+
+    @Override
+    public int getBlockColor(BlockPos blockPosIn, ColorResolver colorResolverIn) {
+        return world.getBlockColor(blockPosIn, colorResolverIn);
+    }
 }

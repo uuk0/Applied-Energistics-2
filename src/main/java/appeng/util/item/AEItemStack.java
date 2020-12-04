@@ -1,6 +1,6 @@
 /*
  * This file is part of Applied Energistics 2.
- * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
+ * Copyright (c) 2013 - 2020, AlgorithmX2, All rights reserved.
  *
  * Applied Energistics 2 is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -18,20 +18,16 @@
 
 package appeng.util.item;
 
-
 import java.util.List;
 import java.util.Objects;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import appeng.core.Api;
-
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.PacketBuffer;
-import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -41,300 +37,246 @@ import appeng.api.config.FuzzyMode;
 import appeng.api.storage.IStorageChannel;
 import appeng.api.storage.channels.IItemStorageChannel;
 import appeng.api.storage.data.IAEItemStack;
+import appeng.core.Api;
 import appeng.util.Platform;
 
+public final class AEItemStack extends AEStack<IAEItemStack> implements IAEItemStack {
+    private static final String NBT_STACKSIZE = "cnt";
+    private static final String NBT_REQUESTABLE = "req";
+    private static final String NBT_CRAFTABLE = "craft";
+    private static final String NBT_ITEMSTACK = "is";
 
-public final class AEItemStack extends AEStack<IAEItemStack> implements IAEItemStack
-{
-	private AESharedItemStack sharedStack;
+    private final AESharedItemStack sharedStack;
 
-	@OnlyIn( Dist.CLIENT )
-	private ITextComponent displayName;
-	@OnlyIn( Dist.CLIENT )
-	private List<ITextComponent> tooltip;
-	@OnlyIn( Dist.CLIENT )
-	private ResourceLocation uniqueID;
+    @OnlyIn(Dist.CLIENT)
+    private ITextComponent displayName;
+    @OnlyIn(Dist.CLIENT)
+    private List<ITextComponent> tooltip;
 
-	private AEItemStack( final AEItemStack is )
-	{
-		this.setStackSize( is.getStackSize() );
-		this.setCraftable( is.isCraftable() );
-		this.setCountRequestable( is.getCountRequestable() );
-		this.sharedStack = is.sharedStack;
-	}
+    private AEItemStack(final AEItemStack is) {
+        this.setStackSize(is.getStackSize());
+        this.setCraftable(is.isCraftable());
+        this.setCountRequestable(is.getCountRequestable());
+        this.sharedStack = is.sharedStack;
+    }
 
-	private AEItemStack( final AESharedItemStack is, long size )
-	{
-		this.sharedStack = is;
-		this.setStackSize( size );
-		this.setCraftable( false );
-		this.setCountRequestable( 0 );
-	}
+    private AEItemStack(final AESharedItemStack is, long size) {
+        this.sharedStack = is;
+        this.setStackSize(size);
+        this.setCraftable(false);
+        this.setCountRequestable(0);
+    }
 
-	@Nullable
-	public static AEItemStack fromItemStack( @Nonnull final ItemStack stack )
-	{
-		if( stack.isEmpty() )
-		{
-			return null;
-		}
+    @Nullable
+    public static AEItemStack fromItemStack(@Nonnull final ItemStack stack) {
+        if (stack.isEmpty()) {
+            return null;
+        }
 
-		return new AEItemStack( AEItemStackRegistry.getRegisteredStack( stack ), stack.getCount() );
-	}
+        return new AEItemStack(AEItemStackRegistry.getRegisteredStack(stack), stack.getCount());
+    }
 
-	public static IAEItemStack fromNBT( final CompoundNBT i )
-	{
-		if( i == null )
-		{
-			return null;
-		}
+    public static IAEItemStack fromNBT(final CompoundNBT i) {
+        if (i == null) {
+            return null;
+        }
 
-		final ItemStack itemstack = ItemStack.read( i );
-		if( itemstack.isEmpty() )
-		{
-			return null;
-		}
+        final ItemStack itemstack = ItemStack.read(i.getCompound(NBT_ITEMSTACK));
+        if (itemstack.isEmpty()) {
+            return null;
+        }
 
-		final AEItemStack item = AEItemStack.fromItemStack( itemstack );
-		item.setStackSize( i.getLong( "Cnt" ) );
-		item.setCountRequestable( i.getLong( "Req" ) );
-		item.setCraftable( i.getBoolean( "Craft" ) );
-		return item;
-	}
+        final AEItemStack item = AEItemStack.fromItemStack(itemstack);
+        item.setStackSize(i.getLong(NBT_STACKSIZE));
+        item.setCountRequestable(i.getLong(NBT_REQUESTABLE));
+        item.setCraftable(i.getBoolean(NBT_CRAFTABLE));
+        return item;
+    }
 
-	@Override
-	public void writeToNBT( final CompoundNBT i )
-	{
-		this.getDefinition().write( i );
-		i.putLong( "Cnt", this.getStackSize() );
-		i.putLong( "Req", this.getCountRequestable() );
-		i.putBoolean( "Craft", this.isCraftable() );
-	}
+    @Override
+    public void writeToNBT(final CompoundNBT i) {
+        final CompoundNBT itemStack = new CompoundNBT();
+        this.getDefinition().write(itemStack);
 
-	public static AEItemStack fromPacket( final PacketBuffer data )
-	{
-		final byte mask = data.readByte();
-		final byte stackType = (byte) ( ( mask & 0x0C ) >> 2 );
-		final byte countReqType = (byte) ( ( mask & 0x30 ) >> 4 );
-		final boolean isCraftable = ( mask & 0x40 ) > 0;
+        i.put(NBT_ITEMSTACK, itemStack);
+        i.putLong(NBT_STACKSIZE, this.getStackSize());
+        i.putLong(NBT_REQUESTABLE, this.getCountRequestable());
+        i.putBoolean(NBT_CRAFTABLE, this.isCraftable());
+    }
 
-		final ItemStack itemstack = data.readItemStack();
-		final long stackSize = getPacketValue( stackType, data );
-		final long countRequestable = getPacketValue( countReqType, data );
+    public static AEItemStack fromPacket(final PacketBuffer buffer) {
+        final boolean isCraftable = buffer.readBoolean();
+        final long stackSize = buffer.readVarLong();
+        final long countRequestable = buffer.readVarLong();
+        final ItemStack itemstack = buffer.readItemStack();
 
-		if( itemstack.isEmpty() )
-		{
-			return null;
-		}
+        if (itemstack.isEmpty()) {
+            return null;
+        }
 
-		final AEItemStack item = new AEItemStack( AEItemStackRegistry.getRegisteredStack( itemstack ), stackSize );
-		item.setCountRequestable( countRequestable );
-		item.setCraftable( isCraftable );
-		return item;
-	}
+        final AEItemStack item = new AEItemStack(AEItemStackRegistry.getRegisteredStack(itemstack), stackSize);
+        item.setCountRequestable(countRequestable);
+        item.setCraftable(isCraftable);
+        return item;
+    }
 
-	@Override
-	public void writeToPacket( final PacketBuffer i )
-	{
-		final byte mask = (byte) ( ( this.getType( this.getStackSize() ) << 2 ) | ( this
-				.getType( this.getCountRequestable() ) << 4 ) | ( (byte) ( this.isCraftable() ? 1 : 0 ) << 6 ) | ( this.hasTagCompound() ? 1 : 0 ) << 7 );
+    @Override
+    public void writeToPacket(final PacketBuffer buffer) {
+        buffer.writeBoolean(this.isCraftable());
+        buffer.writeVarLong(this.getStackSize());
+        buffer.writeVarLong(this.getCountRequestable());
+        buffer.writeItemStack(getDefinition(), false);
+    }
 
-		i.writeByte( mask );
-		i.writeCompoundTag( this.getDefinition().serializeNBT() );
-		this.putPacketValue( i, this.getStackSize() );
-		this.putPacketValue( i, this.getCountRequestable() );
-	}
+    @Override
+    public void add(final IAEItemStack option) {
+        if (option == null) {
+            return;
+        }
 
-	@Override
-	public void add( final IAEItemStack option )
-	{
-		if( option == null )
-		{
-			return;
-		}
+        this.incStackSize(option.getStackSize());
+        this.setCountRequestable(this.getCountRequestable() + option.getCountRequestable());
+        this.setCraftable(this.isCraftable() || option.isCraftable());
+    }
 
-		this.incStackSize( option.getStackSize() );
-		this.setCountRequestable( this.getCountRequestable() + option.getCountRequestable() );
-		this.setCraftable( this.isCraftable() || option.isCraftable() );
-	}
+    @Override
+    public boolean fuzzyComparison(final IAEItemStack other, final FuzzyMode mode) {
+        final ItemStack itemStack = this.getDefinition();
+        final ItemStack otherStack = other.getDefinition();
 
-	@Override
-	public boolean fuzzyComparison( final IAEItemStack other, final FuzzyMode mode )
-	{
-		final ItemStack itemStack = this.getDefinition();
-		final ItemStack otherStack = other.getDefinition();
+        return this.fuzzyItemStackComparison(itemStack, otherStack, mode);
+    }
 
-		return this.fuzzyItemStackComparison( itemStack, otherStack, mode );
-	}
+    @Override
+    public IAEItemStack copy() {
+        return new AEItemStack(this);
+    }
 
-	@Override
-	public IAEItemStack copy()
-	{
-		return new AEItemStack( this );
-	}
+    @Override
+    public IStorageChannel<IAEItemStack> getChannel() {
+        return Api.instance().storage().getStorageChannel(IItemStorageChannel.class);
+    }
 
-	@Override
-	public boolean isItem()
-	{
-		return true;
-	}
+    @Override
+    public ItemStack createItemStack() {
+        return ItemHandlerHelper.copyStackWithSize(this.getDefinition(),
+                (int) Math.min(Integer.MAX_VALUE, this.getStackSize()));
+    }
 
-	@Override
-	public boolean isFluid()
-	{
-		return false;
-	}
+    @Override
+    public Item getItem() {
+        return this.getDefinition().getItem();
+    }
 
-	@Override
-	public IStorageChannel<IAEItemStack> getChannel()
-	{
-		return Api.INSTANCE.storage().getStorageChannel( IItemStorageChannel.class );
-	}
+    @Override
+    public int getItemDamage() {
+        return this.sharedStack.getItemDamage();
+    }
 
-	@Override
-	public ItemStack createItemStack()
-	{
-		return ItemHandlerHelper.copyStackWithSize( this.getDefinition(), (int) Math.min( Integer.MAX_VALUE, this.getStackSize() ) );
-	}
+    @Override
+    public boolean isSameType(final IAEItemStack otherStack) {
+        if (otherStack == null) {
+            return false;
+        }
 
-	@Override
-	public Item getItem()
-	{
-		return this.getDefinition().getItem();
-	}
+        return Objects.equals(this.sharedStack, ((AEItemStack) otherStack).sharedStack);
+    }
 
-	@Override
-	public int getItemDamage()
-	{
-		return this.sharedStack.getItemDamage();
-	}
+    @Override
+    public boolean isSameType(final ItemStack otherStack) {
+        if (otherStack.isEmpty()) {
+            return false;
+        }
+        int oldSize = otherStack.getCount();
 
-	@Override
-	public boolean isSameType( final IAEItemStack otherStack )
-	{
-		if( otherStack == null )
-		{
-			return false;
-		}
+        otherStack.setCount(1);
+        boolean ret = ItemStack.areItemStacksEqual(this.getDefinition(), otherStack);
+        otherStack.setCount(oldSize);
 
-		return Objects.equals( this.sharedStack, ( (AEItemStack) otherStack ).sharedStack );
-	}
+        return ret;
+    }
 
-	@Override
-	public boolean isSameType( final ItemStack otherStack )
-	{
-		if( otherStack.isEmpty() )
-		{
-			return false;
-		}
-		int oldSize = otherStack.getCount();
+    @Override
+    public int hashCode() {
+        return this.sharedStack.hashCode();
+    }
 
-		otherStack.setCount( 1 );
-		boolean ret = ItemStack.areItemStacksEqual( this.getDefinition(), otherStack );
-		otherStack.setCount( oldSize );
+    @Override
+    public boolean equals(final Object ia) {
+        if (ia instanceof AEItemStack) {
+            return this.isSameType((AEItemStack) ia);
+        } else if (ia instanceof ItemStack) {
+            // this actually breaks the equals contract (being equals to unrelated classes)
+            return equals((ItemStack) ia);
+        }
+        return false;
+    }
 
-		return ret;
-	}
+    public boolean equals(final ItemStack is) {
+        return this.isSameType(is);
+    }
 
-	@Override
-	public int hashCode()
-	{
-		return this.sharedStack.hashCode();
-	}
+    @Override
+    public String toString() {
+        return this.getStackSize() + "x" + this.getDefinition().getItem().getRegistryName();
+    }
 
-	@Override
-	public boolean equals( final Object ia )
-	{
-		if( ia instanceof AEItemStack )
-		{
-			return this.isSameType( (AEItemStack) ia );
-		}
-		else if( ia instanceof ItemStack )
-		{
-			return this.isSameType( (ItemStack) ia );
-		}
-		return false;
-	}
+    @OnlyIn(Dist.CLIENT)
+    public List<ITextComponent> getToolTip() {
+        if (this.tooltip == null) {
+            this.tooltip = Platform.getTooltip(this.asItemStackRepresentation());
+        }
+        return this.tooltip;
+    }
 
-	@Override
-	public String toString()
-	{
-		return this.getStackSize() + "x" + this.getDefinition().getItem().getRegistryName();
-	}
+    @OnlyIn(Dist.CLIENT)
+    public ITextComponent getDisplayName() {
+        if (this.displayName == null) {
+            this.displayName = Platform.getItemDisplayName(this.asItemStackRepresentation());
+        }
+        return this.displayName;
+    }
 
-	@OnlyIn( Dist.CLIENT )
-	public List<ITextComponent> getToolTip()
-	{
-		if( this.tooltip == null )
-		{
-			this.tooltip = Platform.getTooltip( this.asItemStackRepresentation() );
-		}
-		return this.tooltip;
-	}
+    @OnlyIn(Dist.CLIENT)
+    public String getModID() {
+        return this.getDefinition().getItem().getRegistryName().getNamespace();
+    }
 
-	@OnlyIn( Dist.CLIENT )
-	public ITextComponent getDisplayName()
-	{
-		if( this.displayName == null )
-		{
-			this.displayName = Platform.getItemDisplayName( this.asItemStackRepresentation() );
-		}
-		return this.displayName;
-	}
+    @Override
+    public boolean hasTagCompound() {
+        return this.getDefinition().hasTag();
+    }
 
-	@OnlyIn( Dist.CLIENT )
-	public String getModID()
-	{
-		return this.getDefinition().getItem().getRegistryName().getNamespace();
-	}
+    @Override
+    public ItemStack asItemStackRepresentation() {
+        return this.getDefinition().copy();
+    }
 
-	@Override
-	public boolean hasTagCompound()
-	{
-		return this.getDefinition().hasTag();
-	}
+    @Override
+    public ItemStack getDefinition() {
+        return this.sharedStack.getDefinition();
+    }
 
-	@Override
-	public ItemStack asItemStackRepresentation()
-	{
-		return this.getDefinition().copy();
-	}
+    AESharedItemStack getSharedStack() {
+        return this.sharedStack;
+    }
 
-	@Override
-	public ItemStack getDefinition()
-	{
-		return this.sharedStack.getDefinition();
-	}
+    private boolean fuzzyItemStackComparison(ItemStack a, ItemStack b, FuzzyMode mode) {
+        if (a.getItem() == b.getItem()) {
+            if (a.getItem().isDamageable()) {
+                if (mode == FuzzyMode.IGNORE_ALL) {
+                    return true;
+                } else if (mode == FuzzyMode.PERCENT_99) {
+                    return (a.getDamage() > 1) == (b.getDamage() > 1);
+                } else {
+                    final float percentDamageOfA = (float) a.getDamage() / a.getMaxDamage();
+                    final float percentDamageOfB = (float) b.getDamage() / b.getMaxDamage();
 
-	AESharedItemStack getSharedStack()
-	{
-		return this.sharedStack;
-	}
+                    return (percentDamageOfA > mode.breakPoint) == (percentDamageOfB > mode.breakPoint);
+                }
+            }
+        }
 
-	private boolean fuzzyItemStackComparison( ItemStack a, ItemStack b, FuzzyMode mode )
-	{
-		if( a.getItem() == b.getItem() )
-		{
-			if( a.getItem().isDamageable() )
-			{
-				if( mode == FuzzyMode.IGNORE_ALL )
-				{
-					return true;
-				}
-				else if( mode == FuzzyMode.PERCENT_99 )
-				{
-					return ( a.getDamage() > 1 ) == ( b.getDamage() > 1 );
-				}
-				else
-				{
-					final float percentDamageOfA = (float) a.getDamage() / a.getMaxDamage();
-					final float percentDamageOfB = (float) b.getDamage() / b.getMaxDamage();
-
-					return ( percentDamageOfA > mode.breakPoint ) == ( percentDamageOfB > mode.breakPoint );
-				}
-			}
-		}
-
-		return false;
-	}
+        return false;
+    }
 }

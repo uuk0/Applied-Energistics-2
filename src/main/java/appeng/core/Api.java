@@ -18,82 +18,97 @@
 
 package appeng.core;
 
-
+import appeng.api.AEAddon;
 import appeng.api.IAppEngApi;
+import appeng.api.client.IClientHelper;
+import appeng.api.crafting.ICraftingHelper;
 import appeng.api.features.IRegistryContainer;
 import appeng.api.networking.IGridHelper;
 import appeng.api.storage.IStorageHelper;
-import appeng.api.util.IClientHelper;
 import appeng.core.api.ApiClientHelper;
+import appeng.core.api.ApiCrafting;
 import appeng.core.api.ApiGrid;
 import appeng.core.api.ApiPart;
 import appeng.core.api.ApiStorage;
 import appeng.core.features.registries.PartModels;
 import appeng.core.features.registries.RegistryContainer;
 
+public final class Api implements IAppEngApi {
 
-public final class Api implements IAppEngApi
-{
-	public static final Api INSTANCE = new Api();
+    /**
+     * While permitting public access, directly using {@link Api#instance()} is not recommended except in very special
+     * cases.
+     */
+    public static final Api INSTANCE = new Api();
 
-	private final ApiPart partHelper;
+    /**
+     * Use primarily to access the API.
+     * 
+     * Using {@link IAppEngApi} intentionally to avoid using functionality not exposed by accident.
+     * 
+     * In some cases we might have to access the API before it is announced via {@link AEAddon}, otherwise we could just
+     * inject it into AE2 itself.
+     */
+    public static IAppEngApi instance() {
+        return INSTANCE;
+    }
 
-	// private MovableTileRegistry MovableRegistry = new MovableTileRegistry();
-	private final IRegistryContainer registryContainer;
-	private final IStorageHelper storageHelper;
-	private final IGridHelper networkHelper;
-	private final ApiDefinitions definitions;
-	private final IClientHelper client;
+    private final ApiPart partHelper;
 
-	private Api()
-	{
-		this.storageHelper = new ApiStorage();
-		this.networkHelper = new ApiGrid();
-		this.registryContainer = new RegistryContainer();
-		this.partHelper = new ApiPart();
-		this.definitions = new ApiDefinitions( (PartModels) this.registryContainer.partModels() );
-		this.client = new ApiClientHelper();
-	}
+    // private MovableTileRegistry MovableRegistry = new MovableTileRegistry();
+    private final IRegistryContainer registryContainer;
+    private final IStorageHelper storageHelper;
+    private final IGridHelper networkHelper;
+    private final ApiDefinitions definitions;
+    private final ICraftingHelper craftingHelper;
+    private final IClientHelper client;
 
-	public PartModels getPartModels()
-	{
-		return (PartModels) this.registryContainer.partModels();
-	}
+    private Api() {
+        this.storageHelper = new ApiStorage();
+        this.networkHelper = new ApiGrid();
+        this.registryContainer = new RegistryContainer();
+        this.partHelper = new ApiPart();
+        this.definitions = new ApiDefinitions((PartModels) this.registryContainer.partModels());
+        this.craftingHelper = new ApiCrafting(this.definitions);
+        this.client = new ApiClientHelper(this.definitions);
+    }
 
-	@Override
-	public IRegistryContainer registries()
-	{
-		return this.registryContainer;
-	}
+    public PartModels getPartModels() {
+        return (PartModels) this.registryContainer.partModels();
+    }
 
-	@Override
-	public IStorageHelper storage()
-	{
-		return this.storageHelper;
-	}
+    @Override
+    public IRegistryContainer registries() {
+        return this.registryContainer;
+    }
 
-	@Override
-	public IGridHelper grid()
-	{
-		return this.networkHelper;
-	}
+    @Override
+    public IStorageHelper storage() {
+        return this.storageHelper;
+    }
 
-	@Override
-	public ApiPart partHelper()
-	{
-		return this.partHelper;
-	}
+    @Override
+    public ICraftingHelper crafting() {
+        return this.craftingHelper;
+    }
 
-	@Override
-	public ApiDefinitions definitions()
-	{
-		return this.definitions;
-	}
+    @Override
+    public IGridHelper grid() {
+        return this.networkHelper;
+    }
 
-	@Override
-	public IClientHelper client()
-	{
-		return this.client;
-	}
+    @Override
+    public ApiPart partHelper() {
+        return this.partHelper;
+    }
 
+    @Override
+    public ApiDefinitions definitions() {
+        return this.definitions;
+    }
+
+    @Override
+    public IClientHelper client() {
+        return this.client;
+    }
 }

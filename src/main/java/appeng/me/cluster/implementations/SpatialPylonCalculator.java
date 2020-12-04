@@ -18,93 +18,57 @@
 
 package appeng.me.cluster.implementations;
 
-
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
-import appeng.api.util.DimensionalCoord;
-import appeng.api.util.WorldCoord;
-import appeng.me.cluster.IAECluster;
 import appeng.me.cluster.IAEMultiBlock;
 import appeng.me.cluster.MBCalculator;
-import appeng.tile.spatial.TileSpatialPylon;
+import appeng.tile.spatial.SpatialPylonTileEntity;
 
+public class SpatialPylonCalculator extends MBCalculator<SpatialPylonTileEntity, SpatialPylonCluster> {
 
-public class SpatialPylonCalculator extends MBCalculator
-{
+    public SpatialPylonCalculator(final SpatialPylonTileEntity t) {
+        super(t);
+    }
 
-	private final TileSpatialPylon tqb;
+    @Override
+    public boolean checkMultiblockScale(final BlockPos min, final BlockPos max) {
+        return (min.getX() == max.getX() && min.getY() == max.getY() && min.getZ() != max.getZ())
+                || (min.getX() == max.getX() && min.getY() != max.getY() && min.getZ() == max.getZ())
+                || (min.getX() != max.getX() && min.getY() == max.getY() && min.getZ() == max.getZ());
+    }
 
-	public SpatialPylonCalculator( final IAEMultiBlock t )
-	{
-		super( t );
-		this.tqb = (TileSpatialPylon) t;
-	}
+    @Override
+    public SpatialPylonCluster createCluster(final World w, final BlockPos min, final BlockPos max) {
+        return new SpatialPylonCluster(w, min, max);
+    }
 
-	@Override
-	public boolean checkMultiblockScale( final WorldCoord min, final WorldCoord max )
-	{
-		return ( min.x == max.x && min.y == max.y && min.z != max.z ) || ( min.x == max.x && min.y != max.y && min.z == max.z ) || ( min.x != max.x && min.y == max.y && min.z == max.z );
-	}
+    @Override
+    public boolean verifyInternalStructure(final World w, final BlockPos min, final BlockPos max) {
 
-	@Override
-	public IAECluster createCluster( final World w, final WorldCoord min, final WorldCoord max )
-	{
-		return new SpatialPylonCluster( new DimensionalCoord( w, min.x, min.y, min.z ), new DimensionalCoord( w, max.x, max.y, max.z ) );
-	}
+        for (BlockPos p : BlockPos.getAllInBoxMutable(min, max)) {
+            final IAEMultiBlock<?> te = (IAEMultiBlock<?>) w.getTileEntity(p);
 
-	@Override
-	public boolean verifyInternalStructure( final World w, final WorldCoord min, final WorldCoord max )
-	{
+            if (te == null || !te.isValid()) {
+                return false;
+            }
+        }
 
-		for( int x = min.x; x <= max.x; x++ )
-		{
-			for( int y = min.y; y <= max.y; y++ )
-			{
-				for( int z = min.z; z <= max.z; z++ )
-				{
-					final IAEMultiBlock te = (IAEMultiBlock) w.getTileEntity( new BlockPos( x, y, z ) );
+        return true;
+    }
 
-					if( !te.isValid() )
-					{
-						return false;
-					}
-				}
-			}
-		}
+    @Override
+    public void updateTiles(final SpatialPylonCluster c, final World w, final BlockPos min, final BlockPos max) {
+        for (BlockPos p : BlockPos.getAllInBoxMutable(min, max)) {
+            final SpatialPylonTileEntity te = (SpatialPylonTileEntity) w.getTileEntity(p);
+            te.updateStatus(c);
+            c.getLine().add(te);
+        }
+    }
 
-		return true;
-	}
-
-	@Override
-	public void disconnect()
-	{
-		this.tqb.disconnect( true );
-	}
-
-	@Override
-	public void updateTiles( final IAECluster cl, final World w, final WorldCoord min, final WorldCoord max )
-	{
-		final SpatialPylonCluster c = (SpatialPylonCluster) cl;
-
-		for( int x = min.x; x <= max.x; x++ )
-		{
-			for( int y = min.y; y <= max.y; y++ )
-			{
-				for( int z = min.z; z <= max.z; z++ )
-				{
-					final TileSpatialPylon te = (TileSpatialPylon) w.getTileEntity( new BlockPos( x, y, z ) );
-					te.updateStatus( c );
-					c.getLine().add( ( te ) );
-				}
-			}
-		}
-	}
-
-	@Override
-	public boolean isValidTile( final TileEntity te )
-	{
-		return te instanceof TileSpatialPylon;
-	}
+    @Override
+    public boolean isValidTile(final TileEntity te) {
+        return te instanceof SpatialPylonTileEntity;
+    }
 }

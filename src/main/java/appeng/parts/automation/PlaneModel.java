@@ -18,65 +18,50 @@
 
 package appeng.parts.automation;
 
-
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Set;
 import java.util.function.Function;
-import javax.annotation.Nullable;
-
-import com.mojang.datafixers.util.Pair;
+import java.util.stream.Stream;
 
 import net.minecraft.client.renderer.model.IBakedModel;
 import net.minecraft.client.renderer.model.IModelTransform;
-import net.minecraft.client.renderer.model.IUnbakedModel;
-import net.minecraft.client.renderer.model.Material;
+import net.minecraft.client.renderer.model.ItemOverrideList;
 import net.minecraft.client.renderer.model.ModelBakery;
+import net.minecraft.client.renderer.model.RenderMaterial;
 import net.minecraft.client.renderer.texture.AtlasTexture;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.client.model.IModelConfiguration;
 
+import appeng.client.render.BasicUnbakedModel;
 
 /**
  * Built-in model for annihilation planes that supports connected textures.
  */
-public class PlaneModel implements IUnbakedModel
-{
+public class PlaneModel implements BasicUnbakedModel<PlaneModel> {
 
-	private final Material frontTexture;
-	private final Material sidesTexture;
-	private final Material backTexture;
-	private final PlaneConnections connections;
+    private final RenderMaterial frontTexture;
+    private final RenderMaterial sidesTexture;
+    private final RenderMaterial backTexture;
 
-	public PlaneModel( ResourceLocation frontTexture, ResourceLocation sidesTexture, ResourceLocation backTexture, PlaneConnections connections )
-	{
-		this.frontTexture = new Material( AtlasTexture.LOCATION_BLOCKS_TEXTURE, frontTexture );
-		this.sidesTexture = new Material( AtlasTexture.LOCATION_BLOCKS_TEXTURE, sidesTexture );
-		this.backTexture = new Material( AtlasTexture.LOCATION_BLOCKS_TEXTURE, backTexture );
-		this.connections = connections;
-	}
+    public PlaneModel(ResourceLocation frontTexture, ResourceLocation sidesTexture, ResourceLocation backTexture) {
+        this.frontTexture = new RenderMaterial(AtlasTexture.LOCATION_BLOCKS_TEXTURE, frontTexture);
+        this.sidesTexture = new RenderMaterial(AtlasTexture.LOCATION_BLOCKS_TEXTURE, sidesTexture);
+        this.backTexture = new RenderMaterial(AtlasTexture.LOCATION_BLOCKS_TEXTURE, backTexture);
+    }
 
-	@Override
-	public Collection<ResourceLocation> getDependencies()
-	{
-		return Collections.emptyList();
-	}
+    @Override
+    public IBakedModel bake(IModelConfiguration owner, ModelBakery bakery,
+            Function<RenderMaterial, TextureAtlasSprite> spriteGetter, IModelTransform modelTransform,
+            ItemOverrideList overrides, ResourceLocation modelLocation) {
+        TextureAtlasSprite frontSprite = spriteGetter.apply(this.frontTexture);
+        TextureAtlasSprite sidesSprite = spriteGetter.apply(this.sidesTexture);
+        TextureAtlasSprite backSprite = spriteGetter.apply(this.backTexture);
 
-	@Override
-	public Collection<Material> getTextures( Function<ResourceLocation, IUnbakedModel> modelGetter, Set<Pair<String, String>> missingTextureErrors )
-	{
-		return Arrays.asList( frontTexture, sidesTexture, backTexture );
-	}
+        return new PlaneBakedModel(frontSprite, sidesSprite, backSprite);
+    }
 
-	@Nullable
-	@Override
-	public IBakedModel bakeModel( ModelBakery modelBakeryIn, Function<Material, TextureAtlasSprite> spriteGetterIn, IModelTransform transformIn, ResourceLocation locationIn )
-	{
-		TextureAtlasSprite frontSprite = spriteGetterIn.apply( this.frontTexture );
-		TextureAtlasSprite sidesSprite = spriteGetterIn.apply( this.sidesTexture );
-		TextureAtlasSprite backSprite = spriteGetterIn.apply( this.backTexture );
+    @Override
+    public Stream<RenderMaterial> getAdditionalTextures() {
+        return Stream.of(frontTexture, sidesTexture, backTexture);
+    }
 
-		return new PlaneBakedModel( frontSprite, sidesSprite, backSprite, this.connections );
-	}
 }

@@ -14,12 +14,14 @@
 !README.md
 !LICENSE
 
-# include sourcecode
+# include sourcecode except generated
 !src/
+src/generated
 
 # include git important files
 !.gitmodules
 !.gitignore
+!.gitattributes
 
 # code format to reduce noise in git commits
 !codeformat/

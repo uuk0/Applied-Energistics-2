@@ -1,0 +1,28 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "appeng.mixins",
+  "refmap": "appliedenergistics2.mixins.refmap.json",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [
+    "spatial.DimensionTypeMixin",
+    "spatial.DimensionOptionMixin",
+    "spatial.EntityMixin",
+    "spatial.BiomesMixin",
+    "structure.DimensionStructuresSettingsMixin",
+    "structure.ConfiguredStructureFeaturesAccessor",
+    "feature.ConfiguredFeaturesAccessor"
+  ],
+  "client": [
+    "spatial.SkyRenderMixin",
+    "spatial.SkyPropertiesMixin",
+    "unlitquad.ModelBakeryMixin",
+    "unlitquad.BlockModelMixin",
+    "unlitquad.BlockPartFaceDeserializerMixin",
+    "unlitquad.BakedQuadAccessor"
+  ],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

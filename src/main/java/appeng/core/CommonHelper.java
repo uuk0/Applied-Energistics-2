@@ -18,11 +18,11 @@
 
 package appeng.core;
 
-
 import java.util.List;
 import java.util.Random;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import net.minecraft.client.util.InputMappings;
 import net.minecraft.entity.player.PlayerEntity;
@@ -34,36 +34,40 @@ import appeng.api.parts.CableRenderMode;
 import appeng.block.AEBaseBlock;
 import appeng.client.ActionKey;
 import appeng.client.EffectType;
-import appeng.core.sync.AppEngPacket;
+import appeng.core.sync.BasePacket;
 
+public abstract class CommonHelper {
 
-public abstract class CommonHelper
-{
+    public abstract World getWorld();
 
-	public abstract void preinit();
+    public abstract void bindTileEntitySpecialRenderer(Class<? extends TileEntity> tile, AEBaseBlock blk);
 
-	public abstract World getWorld();
+    public abstract List<? extends PlayerEntity> getPlayers();
 
-	public abstract void bindTileEntitySpecialRenderer( Class<? extends TileEntity> tile, AEBaseBlock blk );
+    public abstract void sendToAllNearExcept(PlayerEntity p, double x, double y, double z, double dist, World w,
+            BasePacket packet);
 
-	public abstract List<? extends PlayerEntity> getPlayers();
+    public abstract void spawnEffect(EffectType effect, World world, double posX, double posY, double posZ,
+            Object extra);
 
-	public abstract void sendToAllNearExcept( PlayerEntity p, double x, double y, double z, double dist, World w, AppEngPacket packet );
+    public abstract boolean shouldAddParticles(Random r);
 
-	public abstract void spawnEffect( EffectType effect, World world, double posX, double posY, double posZ, Object extra );
+    public abstract RayTraceResult getRTR();
 
-	public abstract boolean shouldAddParticles( Random r );
+    public abstract void postInit();
 
-	public abstract RayTraceResult getRTR();
+    public abstract CableRenderMode getCableRenderMode();
 
-	public abstract void postInit();
+    public abstract void triggerUpdates();
 
-	public abstract CableRenderMode getRenderMode();
+    /**
+     * Sets the player that is currently interacting with a cable or part attached to a cable. This will return that
+     * player's cable render mode from calls to {@link #getCableRenderMode()}, until another player or null is set.
+     * 
+     * @param player Null to revert to the default cable render mode.
+     */
+    public abstract void setPartInteractionPlayer(@Nullable PlayerEntity player);
 
-	public abstract void triggerUpdates();
-
-	public abstract void updateRenderMode( PlayerEntity player );
-
-	public abstract boolean isActionKey( @Nonnull final ActionKey key, InputMappings.Input input );
+    public abstract boolean isActionKey(@Nonnull final ActionKey key, InputMappings.Input input);
 
 }

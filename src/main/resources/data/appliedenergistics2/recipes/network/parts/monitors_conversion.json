@@ -1,0 +1,17 @@
+{
+  "result": {
+    "item": "appliedenergistics2:conversion_monitor"
+  },
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "appliedenergistics2:formation_core"
+    },
+    {
+      "item": "appliedenergistics2:storage_monitor"
+    },
+    {
+      "item": "appliedenergistics2:annihilation_core"
+    }
+  ]
+}

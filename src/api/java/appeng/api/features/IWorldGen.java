@@ -23,24 +23,53 @@
 
 package appeng.api.features;
 
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.world.server.ServerWorld;
 
-import net.minecraft.world.World;
-import net.minecraft.world.dimension.Dimension;
+public interface IWorldGen {
 
+    /**
+     * This method does not do anything since Worldgen is centered around biomes, and not dimensions.
+     * <p>
+     *
+     * @deprecated Scheduled for removal in 9.0.0.
+     */
+    @Deprecated
+    void enableWorldGenForDimension(WorldGenType type, ResourceLocation dimID);
 
-public interface IWorldGen
-{
+    /**
+     * This method does not do anything since Worldgen is centered around biomes, and not dimensions.
+     * <p>
+     *
+     * @deprecated Scheduled for removal in 9.0.0.
+     */
+    @Deprecated
+    void disableWorldGenForDimension(WorldGenType type, ResourceLocation dimID);
 
-	void disableWorldGenForProviderID( WorldGenType type, Class<? extends Dimension> provider );
+    /**
+     * This method does not do anything since Worldgen is centered around biomes, and not dimensions.
+     * <p>
+     *
+     * @deprecated Scheduled for removal in 9.0.0.
+     */
+    @Deprecated
+    boolean isWorldGenEnabled(WorldGenType type, ServerWorld w);
 
-	void enableWorldGenForDimension( WorldGenType type, int dimID );
+    /**
+     * Forces a given AE2 world-generation type to be disabled for a given biome.
+     */
+    void disableWorldGenForBiome(WorldGenType type, ResourceLocation biomeId);
 
-	void disableWorldGenForDimension( WorldGenType type, int dimID );
+    /**
+     * Checks if the given world-generation type is disabled for the given biome id.
+     * <p>
+     * This also takes AE2's configuration file into account.
+     */
+    boolean isWorldGenDisabledForBiome(WorldGenType type, ResourceLocation biomeId);
 
-	boolean isWorldGenEnabled( WorldGenType type, World w );
-
-	enum WorldGenType
-	{
-		CERTUS_QUARTZ, CHARGED_CERTUS_QUARTZ, METEORITES
-	}
+    enum WorldGenType {
+        CERTUS_QUARTZ,
+        CHARGED_CERTUS_QUARTZ,
+        METEORITES
+    }
 }

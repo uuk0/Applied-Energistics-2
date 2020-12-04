@@ -18,128 +18,117 @@
 
 package appeng.client.render;
 
-
-import appeng.api.storage.data.IAEItemStack;
 import com.mojang.blaze3d.matrix.MatrixStack;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.IRenderTypeBuffer;
-import net.minecraft.client.renderer.Vector3f;
+import net.minecraft.client.renderer.model.ItemCameraTransforms;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Direction;
+import net.minecraft.util.math.vector.Vector3f;
 
+import appeng.api.storage.data.IAEItemStack;
 import appeng.util.IWideReadableNumberConverter;
 import appeng.util.ReadableNumberConverter;
-
 
 /**
  * Helper methods for rendering TESRs.
  */
-public class TesrRenderHelper
-{
+public class TesrRenderHelper {
 
-	private static final IWideReadableNumberConverter NUMBER_CONVERTER = ReadableNumberConverter.INSTANCE;
+    private static final IWideReadableNumberConverter NUMBER_CONVERTER = ReadableNumberConverter.INSTANCE;
 
-	/**
-	 * Move the current coordinate system to the center of the given block face, assuming that the origin is currently
-	 * at the center of a block.
-	 */
-	public static void moveToFace( MatrixStack mStack, Direction face )
-	{
-		mStack.translate( face.getXOffset() * 0.50, face.getYOffset() * 0.50, face.getZOffset() * 0.50 );
-	}
+    /**
+     * Rotate the current coordinate system so it is on the face of the given block side. This can be used to render on
+     * the given face as if it was a 2D canvas.
+     */
+    public static void rotateToFace(MatrixStack mStack, Direction face, byte spin) {
+        switch (face) {
+            case UP:
+                mStack.rotate(Vector3f.XP.rotationDegrees(270));
+                mStack.rotate(Vector3f.ZP.rotationDegrees(-spin * 90.0F));
+                break;
 
-	/**
-	 * Rotate the current coordinate system so it is on the face of the given block side. This can be used to render on
-	 * the given face as if it was
-	 * a 2D canvas.
-	 */
-	public static void rotateToFace( MatrixStack mStack, Direction face, byte spin )
-	{
-		switch( face )
-		{
-			case UP:
-				mStack.scale( 1.0f, -1.0f, 1.0f );
-				mStack.rotate( Vector3f.XP.rotationDegrees( 90.0F ) );
-				mStack.rotate( Vector3f.ZP.rotationDegrees( spin * 90.0F ) );
-				break;
+            case DOWN:
+                mStack.rotate(Vector3f.XP.rotationDegrees(90.0F));
+                mStack.rotate(Vector3f.ZP.rotationDegrees(spin * -90.0F));
+                break;
 
-			case DOWN:
-				mStack.scale( 1.0f, -1.0f, 1.0f );
-				mStack.rotate( Vector3f.XP.rotationDegrees( -90.0F ) );
-				mStack.rotate( Vector3f.ZP.rotationDegrees( spin * -90.0F ) );
-				break;
+            case EAST:
+                mStack.rotate(Vector3f.YP.rotationDegrees(90.0F));
+                break;
 
-			case EAST:
-				mStack.scale( -1.0f, -1.0f, -1.0f );
-				mStack.rotate( Vector3f.YP.rotationDegrees( -90.0F ) );
-				break;
+            case WEST:
+                mStack.rotate(Vector3f.YP.rotationDegrees(-90.0F));
+                break;
 
-			case WEST:
-				mStack.scale( -1.0f, -1.0f, -1.0f );
-				mStack.rotate( Vector3f.YP.rotationDegrees( 90.0F ) );
-				break;
+            case NORTH:
+                mStack.rotate(Vector3f.YP.rotationDegrees(180.0F));
+                break;
 
-			case NORTH:
-				mStack.scale( -1.0f, -1.0f, -1.0f );
-				break;
+            case SOUTH:
+                break;
 
-			case SOUTH:
-				mStack.scale( -1.0f, -1.0f, -1.0f );
-				mStack.rotate( Vector3f.YP.rotationDegrees( 180.0F ) );
-				break;
+            default:
+                break;
+        }
+    }
 
-			default:
-				break;
-		}
-	}
+    // TODO, A different approach will have to be used for this from TESRs, -covers,
+    // i have ideas.
+    /**
+     * Render an item in 2D.
+     */
+    public static void renderItem2d(MatrixStack matrixStack, IRenderTypeBuffer buffers, ItemStack itemStack,
+            float scale, int combinedLightIn, int combinedOverlayIn) {
+        if (!itemStack.isEmpty()) {
+            matrixStack.push();
+            // Push it out of the block face a bit to avoid z-fighting
+            matrixStack.translate(0, 0, 0.01f);
+            // The Z-scaling by 0.0002 causes the model to be visually "flattened"
+            // This cannot replace a proper projection, but it's cheap and gives the desired
+            // effect at least from head-on
+            matrixStack.scale(scale, scale, 0.0002f);
 
-	//TODO, A different approach will have to be used for this from TESRs, -covers, i have ideas.
-	/**
-	 * Render an item in 2D.
-	 */
-	public static void renderItem2d(MatrixStack matrixStack, IRenderTypeBuffer buffers, ItemStack itemStack, float scale)
-	{
-		if( !itemStack.isEmpty() )
-		{
-//	FIXME		RenderSystem.glMultiTexCoord2f( GL13.GL_TEXTURE22, 240.f, 240.0f );
-//	FIXME			RenderSystem.pushMatrix();
-//	FIXME			// The Z-scaling by 0.0001 causes the model to be visually "flattened"
-//	FIXME		// This cannot replace a proper projection, but it's cheap and gives the desired
-//	FIXME		// effect at least from head-on
-//	FIXME		RenderSystem.scaled( scale / 32.0f, scale / 32.0f, 0.0001f );
-//	FIXME		// Position the item icon at the top middle of the panel
-//	FIXME		RenderSystem.translated( -8, -11, 0 );
-//	FIXME			ItemRenderer renderItem = Minecraft.getInstance().getItemRenderer();
-//	FIXME		renderItem.renderItemAndEffectIntoGUI( itemStack, 0, 0 );
-//	FIXME			RenderSystem.popMatrix();
-		}
-	}
+            Minecraft.getInstance().getItemRenderer().renderItem(itemStack, ItemCameraTransforms.TransformType.GUI,
+                    combinedLightIn, OverlayTexture.NO_OVERLAY, matrixStack, buffers);
 
-	/**
-	 * Render an item in 2D and the given text below it.
-	 *
-	 * @param matrixStack
-	 * @param buffers
-	 * @param spacing Specifies how far apart the item and the item stack amount are rendered.
-	 */
-	public static void renderItem2dWithAmount(MatrixStack matrixStack, IRenderTypeBuffer buffers, IAEItemStack itemStack, float itemScale, float spacing)
-	{
-		final ItemStack renderStack = itemStack.asItemStackRepresentation();
+            matrixStack.pop();
 
-		TesrRenderHelper.renderItem2d( matrixStack, buffers, renderStack, itemScale );
+        }
+    }
 
-		final long stackSize = itemStack.getStackSize();
-		final String renderedStackSize = NUMBER_CONVERTER.toWideReadableForm( stackSize );
+    /**
+     * Render an item in 2D and the given text below it.
+     *
+     * @param matrixStack
+     * @param buffers
+     * @param spacing           Specifies how far apart the item and the item stack amount are rendered.
+     * @param combinedLightIn
+     * @param combinedOverlayIn
+     */
+    public static void renderItem2dWithAmount(MatrixStack matrixStack, IRenderTypeBuffer buffers,
+            IAEItemStack itemStack, float itemScale, float spacing, int combinedLightIn, int combinedOverlayIn) {
+        final ItemStack renderStack = itemStack.asItemStackRepresentation();
 
-		// Render the item count
-		final FontRenderer fr = Minecraft.getInstance().fontRenderer;
-		final int width = fr.getStringWidth( renderedStackSize );
-		matrixStack.translate( 0.0f, spacing, 0 );
-		matrixStack.scale( 1.0f / 62.0f, 1.0f / 62.0f, 1.0f / 62.0f );
-		matrixStack.translate( -0.5f * width, 0.0f, 0.5f );
-		fr.drawString( renderedStackSize, 0, 0, 0 );
+        TesrRenderHelper.renderItem2d(matrixStack, buffers, renderStack, itemScale, combinedLightIn, combinedOverlayIn);
 
-	}
+        final long stackSize = itemStack.getStackSize();
+        final String renderedStackSize = NUMBER_CONVERTER.toWideReadableForm(stackSize);
+
+        // Render the item count
+        final FontRenderer fr = Minecraft.getInstance().fontRenderer;
+        final int width = fr.getStringWidth(renderedStackSize);
+        matrixStack.push();
+        matrixStack.translate(0.0f, spacing, 0.02f);
+        matrixStack.scale(1.0f / 62.0f, -1.0f / 62.0f, 1.0f / 62.0f);
+        matrixStack.scale(0.5f, 0.5f, 0);
+        matrixStack.translate(-0.5f * width, 0.0f, 0.5f);
+        fr.renderString(renderedStackSize, 0, 0, -1, false, matrixStack.getLast().getMatrix(), buffers, false, 0,
+                15728880);
+        matrixStack.pop();
+
+    }
 }

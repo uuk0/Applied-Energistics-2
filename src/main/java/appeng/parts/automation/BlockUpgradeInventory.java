@@ -18,42 +18,27 @@
 
 package appeng.parts.automation;
 
-
 import net.minecraft.block.Block;
-import net.minecraft.item.Item;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemStack;
 
 import appeng.api.config.Upgrades;
 import appeng.util.inv.IAEAppEngInventory;
 
+public class BlockUpgradeInventory extends UpgradeInventory {
+    private final Block block;
 
-public class BlockUpgradeInventory extends UpgradeInventory
-{
-	private final Block block;
+    public BlockUpgradeInventory(final Block block, final IAEAppEngInventory parent, final int s) {
+        super(parent, s);
+        this.block = block;
+    }
 
-	public BlockUpgradeInventory( final Block block, final IAEAppEngInventory parent, final int s )
-	{
-		super( parent, s );
-		this.block = block;
-	}
+    @Override
+    public int getMaxInstalled(final Upgrades upgrades) {
+        for (final Upgrades.Supported supported : upgrades.getSupported()) {
+            if (supported.isSupported(block)) {
+                return supported.getMaxCount();
+            }
+        }
 
-	@Override
-	public int getMaxInstalled( final Upgrades upgrades )
-	{
-		int max = 0;
-
-		for( final ItemStack is : upgrades.getSupported().keySet() )
-		{
-			final Item encodedItem = is.getItem();
-
-			if( encodedItem instanceof BlockItem && Block.getBlockFromItem( encodedItem ) == this.block )
-			{
-				max = upgrades.getSupported().get( is );
-				break;
-			}
-		}
-
-		return max;
-	}
+        return 0;
+    }
 }

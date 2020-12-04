@@ -23,104 +23,91 @@
 
 package appeng.api.definitions;
 
-
 import appeng.api.util.AEColoredItemDefinition;
-
 
 /**
  * A list of all parts in AE
  */
-public interface IParts
-{
-	AEColoredItemDefinition cableSmart();
+public interface IParts {
+    AEColoredItemDefinition cableSmart();
 
-	AEColoredItemDefinition cableCovered();
+    AEColoredItemDefinition cableCovered();
 
-	AEColoredItemDefinition cableGlass();
+    AEColoredItemDefinition cableGlass();
 
-	AEColoredItemDefinition cableDenseCovered();
+    AEColoredItemDefinition cableDenseCovered();
 
-	AEColoredItemDefinition cableDenseSmart();
+    AEColoredItemDefinition cableDenseSmart();
 
-	AEColoredItemDefinition lumenCableSmart();
+    IItemDefinition quartzFiber();
 
-	AEColoredItemDefinition lumenCableCovered();
+    IItemDefinition toggleBus();
 
-	AEColoredItemDefinition lumenCableGlass();
+    IItemDefinition invertedToggleBus();
 
-	AEColoredItemDefinition lumenDenseCableSmart();
+    IItemDefinition storageBus();
 
-	IItemDefinition quartzFiber();
+    IItemDefinition importBus();
 
-	IItemDefinition toggleBus();
+    IItemDefinition exportBus();
 
-	IItemDefinition invertedToggleBus();
+    IItemDefinition iface();
 
-	IItemDefinition storageBus();
+    IItemDefinition fluidIface();
 
-	IItemDefinition importBus();
+    IItemDefinition levelEmitter();
 
-	IItemDefinition exportBus();
+    IItemDefinition annihilationPlane();
 
-	IItemDefinition iface();
+    IItemDefinition identityAnnihilationPlane();
 
-	IItemDefinition fluidIface();
+    IItemDefinition formationPlane();
 
-	IItemDefinition levelEmitter();
+    IItemDefinition p2PTunnelME();
 
-	IItemDefinition annihilationPlane();
+    IItemDefinition p2PTunnelRedstone();
 
-	IItemDefinition identityAnnihilationPlane();
+    IItemDefinition p2PTunnelItems();
 
-	IItemDefinition formationPlane();
+    IItemDefinition p2PTunnelFluids();
 
-	IItemDefinition p2PTunnelME();
+    IItemDefinition p2PTunnelEU();
 
-	IItemDefinition p2PTunnelRedstone();
+    IItemDefinition p2PTunnelFE();
 
-	IItemDefinition p2PTunnelItems();
+    IItemDefinition p2PTunnelLight();
 
-	IItemDefinition p2PTunnelFluids();
+    IItemDefinition cableAnchor();
 
-	IItemDefinition p2PTunnelEU();
+    IItemDefinition monitor();
 
-	IItemDefinition p2PTunnelFE();
+    IItemDefinition semiDarkMonitor();
 
-	IItemDefinition p2PTunnelLight();
+    IItemDefinition darkMonitor();
 
-	// IItemDefinition p2PTunnelOpenComputers();
+    IItemDefinition interfaceTerminal();
 
-	IItemDefinition cableAnchor();
+    IItemDefinition patternTerminal();
 
-	IItemDefinition monitor();
+    IItemDefinition craftingTerminal();
 
-	IItemDefinition semiDarkMonitor();
+    IItemDefinition terminal();
 
-	IItemDefinition darkMonitor();
+    IItemDefinition storageMonitor();
 
-	IItemDefinition interfaceTerminal();
+    IItemDefinition conversionMonitor();
 
-	IItemDefinition patternTerminal();
+    IItemDefinition fluidTerminal();
 
-	IItemDefinition craftingTerminal();
+    IItemDefinition fluidImportBus();
 
-	IItemDefinition terminal();
+    IItemDefinition fluidExportBus();
 
-	IItemDefinition storageMonitor();
+    IItemDefinition fluidStorageBus();
 
-	IItemDefinition conversionMonitor();
+    IItemDefinition fluidLevelEmitter();
 
-	IItemDefinition fluidTerminal();
+    IItemDefinition fluidAnnihilationPlane();
 
-	IItemDefinition fluidImportBus();
-
-	IItemDefinition fluidExportBus();
-
-	IItemDefinition fluidStorageBus();
-
-	IItemDefinition fluidLevelEmitter();
-
-	IItemDefinition fluidAnnihilationPlane();
-
-	IItemDefinition fluidFormationnPlane();
+    IItemDefinition fluidFormationnPlane();
 }

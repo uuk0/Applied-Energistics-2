@@ -18,15 +18,16 @@
 
 package appeng.server;
 
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
 
-import net.minecraft.command.ICommandSender;
+import net.minecraft.command.CommandSource;
 import net.minecraft.server.MinecraftServer;
 
+public interface ISubCommand {
 
-public interface ISubCommand
-{
+    default void addArguments(LiteralArgumentBuilder<CommandSource> builder) {
+    }
 
-	String getHelp( MinecraftServer srv );
-
-	void call( MinecraftServer srv, String[] args, ICommandSender sender );
+    void call(MinecraftServer srv, CommandContext<CommandSource> ctx, CommandSource sender);
 }

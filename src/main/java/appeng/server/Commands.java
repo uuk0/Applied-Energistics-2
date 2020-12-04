@@ -18,28 +18,30 @@
 
 package appeng.server;
 
-
 import appeng.server.subcommands.ChunkLogger;
+import appeng.server.subcommands.SpatialStorageCommand;
 import appeng.server.subcommands.Supporters;
+import appeng.server.subcommands.TestMeteoritesCommand;
+import appeng.server.subcommands.TestOreGenCommand;
 
+public enum Commands {
+    Chunklogger(4, new ChunkLogger(), false), Supporters(0, new Supporters(), false),
+    TestOreGen(4, new TestOreGenCommand(), true), TestMeteorites(4, new TestMeteoritesCommand(), true),
+    Spatial(4, new SpatialStorageCommand(), false);
 
-public enum Commands
-{
-	Chunklogger( 4, new ChunkLogger() ), Supporters( 0, new Supporters() );
+    public final int level;
+    public final ISubCommand command;
+    public boolean test;
 
-	public final int level;
-	public final ISubCommand command;
+    Commands(final int level, final ISubCommand w, boolean test) {
+        this.level = level;
+        this.command = w;
+        this.test = test;
+    }
 
-	Commands( final int level, final ISubCommand w )
-	{
-		this.level = level;
-		this.command = w;
-	}
-
-	@Override
-	public String toString()
-	{
-		return this.name();
-	}
+    @Override
+    public String toString() {
+        return this.name();
+    }
 
 }

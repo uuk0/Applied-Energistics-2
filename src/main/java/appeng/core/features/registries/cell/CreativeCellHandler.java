@@ -18,49 +18,43 @@
 
 package appeng.core.features.registries.cell;
 
-
 import net.minecraft.item.ItemStack;
 
-import appeng.api.AEApi;
-import appeng.api.storage.ICellHandler;
-import appeng.api.storage.ICellInventoryHandler;
-import appeng.api.storage.ISaveProvider;
 import appeng.api.storage.IStorageChannel;
+import appeng.api.storage.cells.CellState;
+import appeng.api.storage.cells.ICellHandler;
+import appeng.api.storage.cells.ICellInventoryHandler;
+import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.channels.IItemStorageChannel;
 import appeng.core.Api;
-import appeng.items.storage.ItemCreativeStorageCell;
+import appeng.items.storage.CreativeStorageCellItem;
 import appeng.me.storage.CreativeCellInventory;
 
+public final class CreativeCellHandler implements ICellHandler {
 
-public final class CreativeCellHandler implements ICellHandler
-{
+    @Override
+    public boolean isCell(final ItemStack is) {
+        return !is.isEmpty() && is.getItem() instanceof CreativeStorageCellItem;
+    }
 
-	@Override
-	public boolean isCell( final ItemStack is )
-	{
-		return !is.isEmpty() && is.getItem() instanceof ItemCreativeStorageCell;
-	}
+    @Override
+    public ICellInventoryHandler getCellInventory(final ItemStack is, final ISaveProvider container,
+            final IStorageChannel channel) {
+        if (channel == Api.instance().storage().getStorageChannel(IItemStorageChannel.class) && !is.isEmpty()
+                && is.getItem() instanceof CreativeStorageCellItem) {
+            return CreativeCellInventory.getCell(is);
+        }
+        return null;
+    }
 
-	@Override
-	public ICellInventoryHandler getCellInventory( final ItemStack is, final ISaveProvider container, final IStorageChannel channel )
-	{
-		if( channel == Api.INSTANCE.storage().getStorageChannel( IItemStorageChannel.class ) && !is.isEmpty() && is
-				.getItem() instanceof ItemCreativeStorageCell )
-		{
-			return CreativeCellInventory.getCell( is );
-		}
-		return null;
-	}
+    @Override
+    public CellState getStatusForCell(final ItemStack is, final ICellInventoryHandler handler) {
+        return CellState.TYPES_FULL;
+    }
 
-	@Override
-	public int getStatusForCell( final ItemStack is, final ICellInventoryHandler handler )
-	{
-		return 2;
-	}
+    @Override
+    public double cellIdleDrain(final ItemStack is, final ICellInventoryHandler handler) {
+        return 0;
+    }
 
-	@Override
-	public double cellIdleDrain( final ItemStack is, final ICellInventoryHandler handler )
-	{
-		return 0;
-	}
 }

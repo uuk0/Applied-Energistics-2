@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:smelting",
+  "result": {
+    "item": "appliedenergistics2:silicon"
+  },
+  "ingredient": [
+    {
+      "tag": "forge:dusts/quartz"
+    },
+    {
+      "tag": "appliedenergistics2:dusts/certus_quartz"
+    }
+  ],
+  "experience": 0.0
+}

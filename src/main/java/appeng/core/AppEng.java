@@ -18,27 +18,15 @@
 
 package appeng.core;
 
+import java.util.concurrent.TimeUnit;
 
-import java.io.File;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
+import javax.annotation.Nonnull;
 
-import appeng.bootstrap.components.IClientSetupComponent;
-import appeng.bootstrap.components.IInitComponent;
-import appeng.client.ClientHelper;
-import appeng.client.render.model.AutoRotatingModel;
-import appeng.client.render.model.AutoRotatingModelLoader;
-import appeng.client.render.model.GlassModelLoader;
-import appeng.client.render.model.SkyCompassModelLoader;
-import appeng.core.stats.AdvancementTriggers;
-import appeng.core.worlddata.WorldData;
-import appeng.hooks.TickHandler;
-import appeng.parts.PartPlacement;
-import appeng.server.ServerHelper;
-import com.google.gson.Gson;
+import com.google.common.base.Stopwatch;
+
 import net.minecraft.block.Block;
-import net.minecraft.client.renderer.model.BlockModelDefinition;
-import net.minecraft.client.renderer.model.ModelBakery;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.entity.EntityType;
 import net.minecraft.inventory.container.ContainerType;
 import net.minecraft.item.Item;
@@ -46,285 +34,187 @@ import net.minecraft.item.crafting.IRecipeSerializer;
 import net.minecraft.particles.ParticleType;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.registry.Registry;
+import net.minecraft.world.gen.feature.Feature;
+import net.minecraft.world.gen.feature.structure.Structure;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.client.model.ModelLoaderRegistry;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.RegistryEvent;
+import net.minecraftforge.event.world.BiomeLoadingEvent;
+import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.fml.CrashReportExtender;
+import net.minecraftforge.fml.DeferredWorkQueue;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.fml.client.registry.RenderingRegistry;
 import net.minecraftforge.fml.common.Mod;
-
-import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 import net.minecraftforge.fml.config.ModConfig;
-
-import appeng.core.crash.ModCrashEnhancement;
-import appeng.services.export.ExportConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.event.server.FMLServerAboutToStartEvent;
-import net.minecraftforge.fml.event.server.FMLServerStartedEvent;
 import net.minecraftforge.fml.event.server.FMLServerStoppedEvent;
 import net.minecraftforge.fml.event.server.FMLServerStoppingEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
-import javax.annotation.Nonnull;
-
+import appeng.bootstrap.components.IInitComponent;
+import appeng.bootstrap.components.IPostInitComponent;
+import appeng.capabilities.Capabilities;
+import appeng.client.ClientHelper;
+import appeng.core.stats.AdvancementTriggers;
+import appeng.core.sync.network.NetworkHandler;
+import appeng.core.worlddata.WorldData;
+import appeng.entity.ChargedQuartzEntity;
+import appeng.entity.GrowingCrystalEntity;
+import appeng.entity.SingularityEntity;
+import appeng.entity.TinyTNTPrimedEntity;
+import appeng.entity.TinyTNTPrimedRenderer;
+import appeng.hooks.TickHandler;
+import appeng.integration.Integrations;
+import appeng.parts.PartPlacement;
+import appeng.server.ServerHelper;
+import appeng.spatial.SpatialStorageChunkGenerator;
+import appeng.spatial.SpatialStorageDimensionIds;
 
 @Mod(AppEng.MOD_ID)
-public final class AppEng
-{
-	public static CommonHelper proxy;
+public final class AppEng {
+    public static CommonHelper proxy;
 
-	public static final String MOD_ID = "appliedenergistics2";
-	public static final String MOD_NAME = "Applied Energistics 2";
+    public static final String MOD_ID = "appliedenergistics2";
+    public static final String MOD_NAME = "Applied Energistics 2";
 
-	public static final String ASSETS = "appliedenergistics2:";
+    private static AppEng INSTANCE;
 
-	// FIXME replicate this in mods.toml!
-	// FIXME private static final String FORGE_CURRENT_VERSION = ForgeVersion.getVersion();
-	// FIXME private static final String FORGE_MAX_VERSION = ( ForgeVersion.majorVersion + 1 ) + ".0.0.0";
-	// FIXME public static final String MOD_DEPENDENCIES = "required-after:forge@[" + FORGE_CURRENT_VERSION + "," + FORGE_MAX_VERSION + ");after:ctm@[" + CTM.VERSION + ",);";
+    public static ResourceLocation makeId(String id) {
+        return new ResourceLocation(MOD_ID, id);
+    }
 
-	private static AppEng INSTANCE;
+    private final Registration registration;
 
-//FIXME	private final Registration registration;
+    public AppEng() {
+        if (INSTANCE != null) {
+            throw new IllegalStateException();
+        }
+        INSTANCE = this;
 
-	private File configDirectory;
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, AEConfig.CLIENT_SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, AEConfig.COMMON_SPEC);
 
-	/**
-	 * determined in pre-init but used in init
-	 */
-	private ExportConfig exportConfig;
+        proxy = DistExecutor.unsafeRunForDist(() -> ClientHelper::new, () -> ServerHelper::new);
 
-	public AppEng()
-	{
-		if (INSTANCE != null) {
-			throw new IllegalStateException();
-		}
-		INSTANCE = this;
+        CreativeTab.init();
+        new FacadeItemGroup(); // This call has a side-effect (adding it to the creative screen)
 
-		ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, AEConfig.CLIENT_SPEC);
+        IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+        registration = new Registration();
+        modEventBus.addListener(registration::registerDimension);
+        modEventBus.addGenericListener(Block.class, registration::registerBlocks);
+        modEventBus.addGenericListener(Item.class, registration::registerItems);
+        modEventBus.addGenericListener(EntityType.class, registration::registerEntities);
+        modEventBus.addGenericListener(ParticleType.class, registration::registerParticleTypes);
+        modEventBus.addGenericListener(TileEntityType.class, registration::registerTileEntities);
+        modEventBus.addGenericListener(ContainerType.class, registration::registerContainerTypes);
+        modEventBus.addGenericListener(IRecipeSerializer.class, registration::registerRecipeSerializers);
+        modEventBus.addGenericListener(Structure.class, registration::registerStructures);
+        modEventBus.addGenericListener(Feature.class, registration::registerFeatures);
 
-		proxy = DistExecutor.runForDist(() -> ClientHelper::new, () -> ServerHelper::new);
+        modEventBus.addListener(Integrations::enqueueIMC);
+        modEventBus.addListener(this::commonSetup);
 
-		CrashReportExtender.registerCrashCallable( new ModCrashEnhancement() );
+        // Register client-only events
+        DistExecutor.runWhenOn(Dist.CLIENT, () -> registration::registerClientEvents);
+        DistExecutor.runWhenOn(Dist.CLIENT, () -> () -> modEventBus.addListener(this::clientSetup));
 
-		//FIXMEthis.registration = new Registration();
-		//FIXMEMinecraftForge.EVENT_BUS.register( this.registration );
+        TickHandler.setup(MinecraftForge.EVENT_BUS);
 
-		CreativeTab.init();
-		CreativeTabFacade.init();
+        MinecraftForge.EVENT_BUS.addListener(this::onServerAboutToStart);
+        MinecraftForge.EVENT_BUS.addListener(this::serverStopped);
+        MinecraftForge.EVENT_BUS.addListener(this::serverStopping);
+        MinecraftForge.EVENT_BUS.addListener(registration::registerCommands);
 
-		IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
-		Registration registration = new Registration();
-		modEventBus.addGenericListener(Block.class, registration::registerBlocks);
-		modEventBus.addGenericListener(Item.class, registration::registerItems);
-		modEventBus.addGenericListener(EntityType.class, registration::registerEntities);
-		modEventBus.addGenericListener(ParticleType.class, registration::registerParticleTypes);
-		modEventBus.addGenericListener(TileEntityType.class, registration::registerTileEntities);
-		modEventBus.addGenericListener(ContainerType.class, registration::registerContainerTypes);
-		modEventBus.addGenericListener(IRecipeSerializer.class, registration::registerRecipeSerializers);
-		modEventBus.addListener(registration::registerParticleFactories);
-		modEventBus.addListener(registration::registerTextures);
+        MinecraftForge.EVENT_BUS.register(new PartPlacement());
+        MinecraftForge.EVENT_BUS.addListener(registration::addWorldGenToBiome);
 
-		modEventBus.addListener(this::commonSetup);
+    }
 
-		// Register client-only events
-		DistExecutor.runWhenOn(Dist.CLIENT, () -> () -> modEventBus.addListener(this::clientSetup));
-		DistExecutor.runWhenOn(Dist.CLIENT, () -> () -> modEventBus.addListener(registration::modelRegistryEvent));
+    private void commonSetup(FMLCommonSetupEvent event) {
+        ApiDefinitions definitions = Api.INSTANCE.definitions();
+        definitions.getRegistry().getBootstrapComponents(IInitComponent.class)
+                .forEachRemaining(IInitComponent::initialize);
+        definitions.getRegistry().getBootstrapComponents(IPostInitComponent.class)
+                .forEachRemaining(IPostInitComponent::postInitialize);
 
-		MinecraftForge.EVENT_BUS.addListener( TickHandler.INSTANCE::unloadWorld );
-		MinecraftForge.EVENT_BUS.addListener( TickHandler.INSTANCE::onTick );
-		MinecraftForge.EVENT_BUS.addListener( this::serverAboutToStart );
-		MinecraftForge.EVENT_BUS.addListener( this::serverStopped );
-		MinecraftForge.EVENT_BUS.addListener( this::serverStopping );
+        Capabilities.register();
+        Registration.setupInternalRegistries();
+        Registration.postInit();
 
-		MinecraftForge.EVENT_BUS.register( new PartPlacement() );
-	}
+        registerNetworkHandler();
 
-	private void commonSetup(FMLCommonSetupEvent event) {
+        AddonLoader.loadAddons(Api.INSTANCE);
+    }
 
-		ApiDefinitions definitions = Api.INSTANCE.definitions();
-		definitions.getRegistry().getBootstrapComponents( IInitComponent.class ).forEachRemaining(IInitComponent::initialize);
+    @OnlyIn(Dist.CLIENT)
+    private void clientSetup(FMLClientSetupEvent event) {
 
-		Registration.setupInternalRegistries();
-	}
+        ((ClientHelper) proxy).clientInit();
 
-	@OnlyIn(Dist.CLIENT)
-	private void clientSetup(FMLClientSetupEvent event) {
-		final ApiDefinitions definitions = Api.INSTANCE.definitions();
-		definitions.getRegistry().getBootstrapComponents( IClientSetupComponent.class ).forEachRemaining(IClientSetupComponent::setup);
-		ModelLoaderRegistry.registerLoader(new ResourceLocation(AppEng.MOD_ID, "glass"), GlassModelLoader.INSTANCE);
-		ModelLoaderRegistry.registerLoader(new ResourceLocation(AppEng.MOD_ID, "sky_compass"), SkyCompassModelLoader.INSTANCE);
-		ModelLoaderRegistry.registerLoader(new ResourceLocation(AppEng.MOD_ID, "auto_rotating"), AutoRotatingModelLoader.INSTANCE);
-	}
+        RenderingRegistry.registerEntityRenderingHandler(TinyTNTPrimedEntity.TYPE, TinyTNTPrimedRenderer::new);
+        RenderingRegistry.registerEntityRenderingHandler(SingularityEntity.TYPE,
+                m -> new ItemRenderer(m, Minecraft.getInstance().getItemRenderer()));
+        RenderingRegistry.registerEntityRenderingHandler(GrowingCrystalEntity.TYPE,
+                m -> new ItemRenderer(m, Minecraft.getInstance().getItemRenderer()));
+        RenderingRegistry.registerEntityRenderingHandler(ChargedQuartzEntity.TYPE,
+                m -> new ItemRenderer(m, Minecraft.getInstance().getItemRenderer()));
 
-	@Nonnull
-	public static AppEng instance()
-	{
-		if (INSTANCE == null) {
-			throw new IllegalStateException();
-		}
-		return INSTANCE;
-	}
+    }
 
-//	public Biome getStorageBiome()
-//	{
-//		return this.registration.storageBiome;
-//	}
-//
-//	public DimensionType getStorageDimensionType()
-//	{
-//		return this.registration.storageDimensionType;
-//	}
-//
-//	public int getStorageDimensionID()
-//	{
-//		return this.registration.storageDimensionID;
-//	}
+    @Nonnull
+    public static AppEng instance() {
+        if (INSTANCE == null) {
+            throw new IllegalStateException();
+        }
+        return INSTANCE;
+    }
 
-	public AdvancementTriggers getAdvancementTriggers()
-	{
-		return null; // FIXME this.registration.advancementTriggers;
-	}
+    public AdvancementTriggers getAdvancementTriggers() {
+        return this.registration.advancementTriggers;
+    }
 
-//	@EventHandler
-//	private void preInit( final FMLPreInitializationEvent event )
-//	{
-//		final Stopwatch watch = Stopwatch.createStarted();
-//		this.configDirectory = new File( event.getModConfigurationDirectory().getPath(), "AppliedEnergistics2" );
-//
-//		final File configFile = new File( this.configDirectory, "AppliedEnergistics2.cfg" );
-//		final File facadeFile = new File( this.configDirectory, "Facades.cfg" );
-//		final File versionFile = new File( this.configDirectory, "VersionChecker.cfg" );
-//		final File recipeFile = new File( this.configDirectory, "CustomRecipes.cfg" );
-//		final Configuration recipeConfiguration = new Configuration( recipeFile );
-//
-//		AEConfig.init( configFile );
-//		FacadeConfig.init( facadeFile );
-//
-//		final VersionCheckerConfig versionCheckerConfig = new VersionCheckerConfig( versionFile );
-//		this.exportConfig = new ForgeExportConfig( recipeConfiguration );
-//
-//		AELog.info( "Pre Initialization ( started )" );
-//
-//
-//		for( final IntegrationType type : IntegrationType.values() )
-//		{
-//			IntegrationRegistry.INSTANCE.add( type );
-//		}
-//
-//		this.registration.preInitialize( event );
-//
-//		if( Platform.isClient() )
-//		{
-//			AppEng.proxy.preinit();
-//		}
-//
-//		IntegrationRegistry.INSTANCE.preInit();
-//
-//		if( versionCheckerConfig.isVersionCheckingEnabled() )
-//		{
-//			final VersionChecker versionChecker = new VersionChecker( versionCheckerConfig );
-//			final Thread versionCheckerThread = new Thread( versionChecker );
-//
-//			this.startService( "AE2 VersionChecker", versionCheckerThread );
-//		}
-//
-//		AELog.info( "Pre Initialization ( ended after " + watch.elapsed( TimeUnit.MILLISECONDS ) + "ms )" );
-//
-//		// Instantiate all Plugins
-//		List<Object> injectables = Lists.newArrayList(
-//				Api.INSTANCE );
-//		new PluginLoader().loadPlugins( injectables, event.getAsmData() );
-//	}
-//
-//	private void startService( final String serviceName, final Thread thread )
-//	{
-//		thread.setName( serviceName );
-//		thread.setPriority( Thread.MIN_PRIORITY );
-//
-//		AELog.info( "Starting " + serviceName );
-//		thread.start();
-//	}
-//
-//	@EventHandler
-//	private void init( final FMLCommonSetupEvent event )
-//	{
-//		final Stopwatch start = Stopwatch.createStarted();
-//		AELog.info( "Initialization ( started )" );
-//
-//		AppEng.proxy.init();
-//
-//		if( this.exportConfig.isExportingItemNamesEnabled() )
-//		{
-//			if( FMLCommonHandler.instance().getSide().isClient() )
-//			{
-//				final ExportProcess process = new ExportProcess( this.configDirectory, this.exportConfig );
-//				final Thread exportProcessThread = new Thread( process );
-//
-//				this.startService( "AE2 CSV Export", exportProcessThread );
-//			}
-//			else
-//			{
-//				AELog.info( "Disabling item.csv export for custom recipes, since creative tab information is only available on the client." );
-//			}
-//		}
-//
-//		this.registration.initialize( event, this.configDirectory );
-//		IntegrationRegistry.INSTANCE.init();
-//
-//		AELog.info( "Initialization ( ended after " + start.elapsed( TimeUnit.MILLISECONDS ) + "ms )" );
-//	}
-//
-//	@EventHandler
-//	private void postInit( final FMLPostInitializationEvent event )
-//	{
-//		final Stopwatch start = Stopwatch.createStarted();
-//		AELog.info( "Post Initialization ( started )" );
-//
-//		this.registration.postInit( event );
-//		IntegrationRegistry.INSTANCE.postInit();
-//		CrashReportExtender.registerCrashCallable( new IntegrationCrashEnhancement() );
-//
-//		AppEng.proxy.postInit();
-//		AEConfig.instance().save();
-//
-//		NetworkRegistry.INSTANCE.registerGuiHandler( this, GuiBridge.GUI_Handler );
-//		NetworkHandler.init( "AE2" );
-//
-//		AELog.info( "Post Initialization ( ended after " + start.elapsed( TimeUnit.MILLISECONDS ) + "ms )" );
-//	}
-//
-//	@EventHandler
-//	private void handleIMCEvent( final FMLInterModComms.IMCEvent event )
-//	{
-//		final IMCHandler imcHandler = new IMCHandler();
-//
-//		imcHandler.handleIMCEvent( event );
-//	}
+    private void startService(final String serviceName, final Thread thread) {
+        thread.setName(serviceName);
+        thread.setPriority(Thread.MIN_PRIORITY);
 
-	private void serverAboutToStart( final FMLServerStartedEvent evt )
-	{
-		WorldData.onServerAboutToStart( evt.getServer() );
-	}
+        AELog.info("Starting " + serviceName);
+        thread.start();
+    }
 
-	private void serverStopping( final FMLServerStoppingEvent event )
-	{
-		WorldData.instance().onServerStopping();
-	}
+    private void registerNetworkHandler() {
+        final Stopwatch start = Stopwatch.createStarted();
+        AELog.info("Post Initialization ( started )");
 
-	private void serverStopped( final FMLServerStoppedEvent event )
-	{
-		WorldData.instance().onServerStoppped();
-		TickHandler.INSTANCE.shutdown();
-	}
+        // FIXME IntegrationRegistry.INSTANCE.postInit();
+        // FIXME CrashReportExtender.registerCrashCallable( new
+        // IntegrationCrashEnhancement() );
 
-//	@EventHandler
-//	private void serverStarting( final FMLServerStartingEvent evt )
-//	{
-//		evt.registerServerCommand( new AECommand( evt.getServer() ) );
-//	}
+        AppEng.proxy.postInit();
+        AEConfig.instance().save();
+
+        NetworkHandler.init(new ResourceLocation(MOD_ID, "main"));
+
+        AELog.info("Post Initialization ( ended after " + start.elapsed(TimeUnit.MILLISECONDS) + "ms )");
+    }
+
+    private void onServerAboutToStart(final FMLServerAboutToStartEvent evt) {
+        WorldData.onServerStarting(evt.getServer());
+    }
+
+    private void serverStopping(final FMLServerStoppingEvent event) {
+        WorldData.instance().onServerStopping();
+    }
+
+    private void serverStopped(final FMLServerStoppedEvent event) {
+        WorldData.instance().onServerStoppped();
+        TickHandler.instance().shutdown();
+    }
+
 }

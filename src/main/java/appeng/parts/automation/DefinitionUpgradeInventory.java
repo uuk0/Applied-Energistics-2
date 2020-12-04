@@ -18,39 +18,27 @@
 
 package appeng.parts.automation;
 
-
-import net.minecraft.item.ItemStack;
-
 import appeng.api.config.Upgrades;
 import appeng.api.definitions.IItemDefinition;
 import appeng.util.inv.IAEAppEngInventory;
 
+public final class DefinitionUpgradeInventory extends UpgradeInventory {
+    private final IItemDefinition definition;
 
-public final class DefinitionUpgradeInventory extends UpgradeInventory
-{
-	private final IItemDefinition definition;
+    public DefinitionUpgradeInventory(final IItemDefinition definition, final IAEAppEngInventory parent, final int s) {
+        super(parent, s);
 
-	public DefinitionUpgradeInventory( final IItemDefinition definition, final IAEAppEngInventory parent, final int s )
-	{
-		super( parent, s );
+        this.definition = definition;
+    }
 
-		this.definition = definition;
-	}
+    @Override
+    public int getMaxInstalled(final Upgrades upgrades) {
+        for (final Upgrades.Supported supported : upgrades.getSupported()) {
+            if (supported.isSupported(definition.item())) {
+                return supported.getMaxCount();
+            }
+        }
 
-	@Override
-	public int getMaxInstalled( final Upgrades upgrades )
-	{
-		int max = 0;
-
-		for( final ItemStack stack : upgrades.getSupported().keySet() )
-		{
-			if( this.definition.isSameAs( stack ) )
-			{
-				max = upgrades.getSupported().get( stack );
-				break;
-			}
-		}
-
-		return max;
-	}
+        return 0;
+    }
 }

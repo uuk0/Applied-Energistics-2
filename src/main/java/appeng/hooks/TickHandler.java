@@ -18,7 +18,6 @@
 
 package appeng.hooks;
 
-
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -26,6 +25,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.WeakHashMap;
@@ -37,12 +37,15 @@ import com.google.common.collect.Multimap;
 
 import net.minecraft.world.IWorld;
 import net.minecraft.world.World;
-import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.event.TickEvent.ClientTickEvent;
 import net.minecraftforge.event.TickEvent.Phase;
-import net.minecraftforge.event.TickEvent.Type;
+import net.minecraftforge.event.TickEvent.ServerTickEvent;
 import net.minecraftforge.event.TickEvent.WorldTickEvent;
 import net.minecraftforge.event.world.WorldEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.DistExecutor;
+import net.minecraftforge.fml.DistExecutor.SafeRunnable;
 
 import appeng.api.networking.IGridNode;
 import appeng.api.parts.CableRenderMode;
@@ -51,304 +54,276 @@ import appeng.core.AEConfig;
 import appeng.core.AELog;
 import appeng.core.Api;
 import appeng.core.AppEng;
-import appeng.core.sync.packets.PacketPaintedEntity;
+import appeng.core.sync.packets.PaintedEntityPacket;
 import appeng.crafting.CraftingJob;
 import appeng.me.Grid;
-import appeng.tile.AEBaseTile;
+import appeng.tile.AEBaseTileEntity;
 import appeng.util.IWorldCallable;
 import appeng.util.Platform;
 
+public class TickHandler {
 
-public class TickHandler
-{
+    private static final TickHandler INSTANCE = new TickHandler();
+    private final Queue<IWorldCallable<?>> serverQueue = new ArrayDeque<>();
+    private final Multimap<World, CraftingJob> craftingJobs = LinkedListMultimap.create();
+    private final Map<IWorld, Queue<IWorldCallable<?>>> callQueue = new WeakHashMap<>();
+    private final HandlerRep server = new HandlerRep();
+    private final HandlerRep client = new HandlerRep();
+    private final Map<Integer, PlayerColor> cliPlayerColors = new HashMap<>();
+    private final Map<Integer, PlayerColor> srvPlayerColors = new HashMap<>();
+    private CableRenderMode crm = CableRenderMode.STANDARD;
 
-	public static final TickHandler INSTANCE = new TickHandler();
-	private final Queue<IWorldCallable<?>> serverQueue = new ArrayDeque<>();
-	private final Multimap<World, CraftingJob> craftingJobs = LinkedListMultimap.create();
-	private final WeakHashMap<IWorld, Queue<IWorldCallable<?>>> callQueue = new WeakHashMap<>();
-	private final HandlerRep server = new HandlerRep();
-	private final HandlerRep client = new HandlerRep();
-	private final HashMap<Integer, PlayerColor> cliPlayerColors = new HashMap<>();
-	private final HashMap<Integer, PlayerColor> srvPlayerColors = new HashMap<>();
-	private CableRenderMode crm = CableRenderMode.STANDARD;
+    public static TickHandler instance() {
+        return INSTANCE;
+    }
 
-	public HashMap<Integer, PlayerColor> getPlayerColors()
-	{
-		if( Platform.isServer() )
-		{
-			return this.srvPlayerColors;
-		}
-		return this.cliPlayerColors;
-	}
+    public static void setup(IEventBus eventBus) {
+        eventBus.addListener(INSTANCE::onServerTick);
+        eventBus.addListener(INSTANCE::onWorldTick);
+        eventBus.addListener(INSTANCE::onUnloadWorld);
 
-	public void addCallable( final IWorld w, final IWorldCallable<?> c )
-	{
-		if( w == null )
-		{
-			this.serverQueue.add( c );
-		}
-		else
-		{
-			Queue<IWorldCallable<?>> queue = this.callQueue.get( w );
+        // DistExecutor does not like functional interfaces
+        DistExecutor.safeRunWhenOn(Dist.CLIENT, () -> new SafeRunnable() {
 
-			if( queue == null )
-			{
-				queue = new ArrayDeque<>();
-				this.callQueue.put( w, queue );
-			}
+            private static final long serialVersionUID = 5221919736953944125L;
 
-			queue.add( c );
-		}
-	}
+            @Override
+            public void run() {
+                eventBus.addListener(INSTANCE::onClientTick);
 
-	public void addInit( final AEBaseTile tile )
-	{
-		if( Platform.isServer() ) // for no there is no reason to care about this on the client...
-		{
-			this.getRepo().tiles.add( tile );
-		}
-	}
+            }
+        });
+    }
 
-	private HandlerRep getRepo()
-	{
-		if( Platform.isServer() )
-		{
-			return this.server;
-		}
-		return this.client;
-	}
+    public Map<Integer, PlayerColor> getPlayerColors() {
+        if (Platform.isServer()) {
+            return this.srvPlayerColors;
+        }
+        return this.cliPlayerColors;
+    }
 
-	public void addNetwork( final Grid grid )
-	{
-		if( Platform.isServer() ) // for no there is no reason to care about this on the client...
-		{
-			this.getRepo().addNetwork( grid );
-		}
-	}
+    public void addCallable(final IWorld w, final IWorldCallable<?> c) {
+        if (w == null) {
+            this.serverQueue.add(c);
+        } else {
+            Queue<IWorldCallable<?>> queue = this.callQueue.get(w);
 
-	public void removeNetwork( final Grid grid )
-	{
-		if( Platform.isServer() ) // for no there is no reason to care about this on the client...
-		{
-			this.getRepo().removeNetwork( grid );
-		}
-	}
+            if (queue == null) {
+                queue = new ArrayDeque<>();
+                this.callQueue.put(w, queue);
+            }
 
-	public Iterable<Grid> getGridList()
-	{
-		return this.getRepo().networks;
-	}
+            queue.add(c);
+        }
+    }
 
-	public void shutdown()
-	{
-		this.getRepo().clear();
-	}
+    public void addInit(final AEBaseTileEntity tile) {
+        // for no there is no reason to care about this on the client...
+        if (Platform.isServer()) {
+            this.getRepo().tiles.add(tile);
+        }
+    }
 
-	public void unloadWorld( final WorldEvent.Unload ev )
-	{
-		if( Platform.isServer() ) // for no there is no reason to care about this on the client...
-		{
-			final List<IGridNode> toDestroy = new ArrayList<>();
+    private HandlerRep getRepo() {
+        if (Platform.isServer()) {
+            return this.server;
+        }
+        return this.client;
+    }
 
-			this.getRepo().updateNetworks();
-			for( final Grid g : this.getRepo().networks )
-			{
-				for( final IGridNode n : g.getNodes() )
-				{
-					if( n.getWorld() == ev.getWorld() )
-					{
-						toDestroy.add( n );
-					}
-				}
-			}
+    public void addNetwork(final Grid grid) {
+        // for no there is no reason to care about this on the client...
+        if (Platform.isServer()) {
+            this.getRepo().addNetwork(grid);
+        }
+    }
 
-			for( final IGridNode n : toDestroy )
-			{
-				n.destroy();
-			}
-		}
-	}
+    public void removeNetwork(final Grid grid) {
+        // for no there is no reason to care about this on the client...
+        if (Platform.isServer()) {
+            this.getRepo().removeNetwork(grid);
+        }
+    }
 
-	public void onTick( final TickEvent ev )
-	{
+    public Iterable<Grid> getGridList() {
+        return this.getRepo().networks;
+    }
 
-		if( ev.type == Type.CLIENT && ev.phase == Phase.START )
-		{
-			this.tickColors( this.cliPlayerColors );
-			final CableRenderMode currentMode = Api.INSTANCE.partHelper().getCableRenderMode();
-			if( currentMode != this.crm )
-			{
-				this.crm = currentMode;
-				AppEng.proxy.triggerUpdates();
-			}
-		}
+    public void shutdown() {
+        this.getRepo().clear();
+    }
 
-		if( ev.type == Type.WORLD && ev.phase == Phase.END )
-		{
-			final WorldTickEvent wte = (WorldTickEvent) ev;
-			synchronized( this.craftingJobs )
-			{
-				final Collection<CraftingJob> jobSet = this.craftingJobs.get( wte.world );
-				if( !jobSet.isEmpty() )
-				{
-					final int simTime = Math.max( 1, AEConfig.instance().getCraftingCalculationTimePerTick() / jobSet.size() );
-					final Iterator<CraftingJob> i = jobSet.iterator();
-					while( i.hasNext() )
-					{
-						final CraftingJob cj = i.next();
-						if( !cj.simulateFor( simTime ) )
-						{
-							i.remove();
-						}
-					}
-				}
-			}
-		}
+    public void onUnloadWorld(final WorldEvent.Unload ev) {
+        // for no there is no reason to care about this on the client...
+        if (Platform.isServer()) {
+            final List<IGridNode> toDestroy = new ArrayList<>();
 
-		// for no there is no reason to care about this on the client...
-		else if( ev.type == Type.SERVER && ev.phase == Phase.END )
-		{
-			this.tickColors( this.srvPlayerColors );
-			// ready tiles.
-			final HandlerRep repo = this.getRepo();
-			while( !repo.tiles.isEmpty() )
-			{
-				final AEBaseTile bt = repo.tiles.poll();
-				if( !bt.isRemoved() )
-				{
-					bt.onReady();
-				}
-			}
+            this.getRepo().updateNetworks();
+            for (final Grid g : this.getRepo().networks) {
+                for (final IGridNode n : g.getNodes()) {
+                    if (n.getWorld() == ev.getWorld()) {
+                        toDestroy.add(n);
+                    }
+                }
+            }
 
-			// tick networks.
-			this.getRepo().updateNetworks();
-			for( final Grid g : this.getRepo().networks )
-			{
-				g.update();
-			}
+            for (final IGridNode n : toDestroy) {
+                n.destroy();
+            }
+        }
+    }
 
-			// cross world queue.
-			this.processQueue( this.serverQueue, null );
-		}
+    public void onClientTick(final ClientTickEvent ev) {
+        if (ev.phase == Phase.START) {
+            this.tickColors(this.cliPlayerColors);
+            final CableRenderMode currentMode = Api.instance().partHelper().getCableRenderMode();
 
-		// world synced queue(s)
-		if( ev.type == Type.WORLD && ev.phase == Phase.START )
-		{
-			final World world = ( (WorldTickEvent) ev ).world;
-			final Queue<IWorldCallable<?>> queue = this.callQueue.get( world );
-			this.processQueue( queue, world );
-		}
-	}
+            if (currentMode != this.crm) {
+                this.crm = currentMode;
+                AppEng.proxy.triggerUpdates();
+            }
+        }
+    }
 
-	private void tickColors( final HashMap<Integer, PlayerColor> playerSet )
-	{
-		final Iterator<PlayerColor> i = playerSet.values().iterator();
-		while( i.hasNext() )
-		{
-			final PlayerColor pc = i.next();
-			if( pc.ticksLeft <= 0 )
-			{
-				i.remove();
-			}
-			pc.ticksLeft--;
-		}
-	}
+    public void onWorldTick(final WorldTickEvent ev) {
+        if (ev.phase == Phase.START) {
+            final World world = ev.world;
+            final Queue<IWorldCallable<?>> queue = this.callQueue.get(world);
+            this.processQueue(queue, world);
+        }
 
-	private void processQueue( final Queue<IWorldCallable<?>> queue, final World world )
-	{
-		if( queue == null )
-		{
-			return;
-		}
+        if (ev.phase == Phase.END) {
+            synchronized (this.craftingJobs) {
+                final Collection<CraftingJob> jobSet = this.craftingJobs.get(ev.world);
 
-		final Stopwatch sw = Stopwatch.createStarted();
+                if (!jobSet.isEmpty()) {
+                    final int jobSize = jobSet.size();
+                    final int microSecondsPerTick = AEConfig.instance().getCraftingCalculationTimePerTick() * 1000;
+                    final int simTime = Math.max(1, microSecondsPerTick / jobSize);
 
-		IWorldCallable<?> c = null;
-		while( ( c = queue.poll() ) != null )
-		{
-			try
-			{
-				c.call( world );
+                    final Iterator<CraftingJob> i = jobSet.iterator();
 
-				if( sw.elapsed( TimeUnit.MILLISECONDS ) > 50 )
-				{
-					break;
-				}
-			}
-			catch( final Exception e )
-			{
-				AELog.debug( e );
-			}
-		}
+                    while (i.hasNext()) {
+                        final CraftingJob cj = i.next();
+                        if (!cj.simulateFor(simTime)) {
+                            i.remove();
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-		// long time = sw.elapsed( TimeUnit.MILLISECONDS );
-		// if ( time > 0 )
-		// AELog.info( "processQueue Time: " + time + "ms" );
-	}
+    public void onServerTick(final ServerTickEvent ev) {
+        if (ev.phase == Phase.END) {
+            this.tickColors(this.srvPlayerColors);
 
-	public void registerCraftingSimulation( final World world, final CraftingJob craftingJob )
-	{
-		synchronized( this.craftingJobs )
-		{
-			this.craftingJobs.put( world, craftingJob );
-		}
-	}
+            // ready tiles.
+            final HandlerRep repo = this.getRepo();
+            while (!repo.tiles.isEmpty()) {
+                final AEBaseTileEntity bt = repo.tiles.poll();
+                if (!bt.isRemoved()) {
+                    bt.onReady();
+                }
+            }
 
-	private static class HandlerRep
-	{
+            // tick networks.
+            this.getRepo().updateNetworks();
+            for (final Grid g : this.getRepo().networks) {
+                g.update();
+            }
 
-		private Queue<AEBaseTile> tiles = new ArrayDeque<>();
-		private Set<Grid> networks = new HashSet<>();
-		private Set<Grid> toAdd = new HashSet<>();
-		private Set<Grid> toRemove = new HashSet<>();
+            // cross world queue.
+            this.processQueue(this.serverQueue, null);
+        }
+    }
 
-		private void clear()
-		{
-			this.tiles = new ArrayDeque<>();
-			this.networks = new HashSet<>();
-			this.toAdd = new HashSet<>();
-			this.toRemove = new HashSet<>();
-		}
+    public void registerCraftingSimulation(final World world, final CraftingJob craftingJob) {
+        synchronized (this.craftingJobs) {
+            this.craftingJobs.put(world, craftingJob);
+        }
+    }
 
-		private synchronized void addNetwork( Grid g )
-		{
-			this.toAdd.add( g );
-			this.toRemove.remove( g );
-		}
+    private void tickColors(final Map<Integer, PlayerColor> playerSet) {
+        final Iterator<PlayerColor> i = playerSet.values().iterator();
 
-		private synchronized void removeNetwork( Grid g )
-		{
-			this.toRemove.add( g );
-			this.toAdd.remove( g );
-		}
+        while (i.hasNext()) {
+            final PlayerColor pc = i.next();
+            if (pc.ticksLeft <= 0) {
+                i.remove();
+            }
+            pc.ticksLeft--;
+        }
+    }
 
-		private synchronized void updateNetworks()
-		{
-			this.networks.removeAll( this.toRemove );
-			this.toRemove.clear();
+    private void processQueue(final Queue<IWorldCallable<?>> queue, final World world) {
+        if (queue == null) {
+            return;
+        }
 
-			this.networks.addAll( this.toAdd );
-			this.toAdd.clear();
-		}
-	}
+        final Stopwatch sw = Stopwatch.createStarted();
 
-	public static class PlayerColor
-	{
+        IWorldCallable<?> c = null;
+        while ((c = queue.poll()) != null) {
+            try {
+                c.call(world);
 
-		public final AEColor myColor;
-		private final int myEntity;
-		private int ticksLeft;
+                if (sw.elapsed(TimeUnit.MILLISECONDS) > 50) {
+                    break;
+                }
+            } catch (final Exception e) {
+                AELog.debug(e);
+            }
+        }
+    }
 
-		public PlayerColor( final int id, final AEColor col, final int ticks )
-		{
-			this.myEntity = id;
-			this.myColor = col;
-			this.ticksLeft = ticks;
-		}
+    private static class HandlerRep {
 
-		public PacketPaintedEntity getPacket()
-		{
-			return new PacketPaintedEntity( this.myEntity, this.myColor, this.ticksLeft );
-		}
-	}
+        private Queue<AEBaseTileEntity> tiles = new ArrayDeque<>();
+        private Set<Grid> networks = new HashSet<>();
+        private Set<Grid> toAdd = new HashSet<>();
+        private Set<Grid> toRemove = new HashSet<>();
+
+        private void clear() {
+            this.tiles = new ArrayDeque<>();
+            this.networks = new HashSet<>();
+            this.toAdd = new HashSet<>();
+            this.toRemove = new HashSet<>();
+        }
+
+        private synchronized void addNetwork(Grid g) {
+            this.toAdd.add(g);
+            this.toRemove.remove(g);
+        }
+
+        private synchronized void removeNetwork(Grid g) {
+            this.toRemove.add(g);
+            this.toAdd.remove(g);
+        }
+
+        private synchronized void updateNetworks() {
+            this.networks.removeAll(this.toRemove);
+            this.toRemove.clear();
+
+            this.networks.addAll(this.toAdd);
+            this.toAdd.clear();
+        }
+    }
+
+    public static class PlayerColor {
+
+        public final AEColor myColor;
+        private final int myEntity;
+        private int ticksLeft;
+
+        public PlayerColor(final int id, final AEColor col, final int ticks) {
+            this.myEntity = id;
+            this.myColor = col;
+            this.ticksLeft = ticks;
+        }
+
+        public PaintedEntityPacket getPacket() {
+            return new PaintedEntityPacket(this.myEntity, this.myColor, this.ticksLeft);
+        }
+    }
 }

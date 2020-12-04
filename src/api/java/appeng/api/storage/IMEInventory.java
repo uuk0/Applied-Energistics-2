@@ -23,12 +23,10 @@
 
 package appeng.api.storage;
 
-
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.storage.data.IAEStack;
 import appeng.api.storage.data.IItemList;
-
 
 /**
  * AE's Equivalent to IInventory, used to reading contents, and manipulating contents of ME Inventories.
@@ -40,41 +38,40 @@ import appeng.api.storage.data.IItemList;
  * If you want to request a stack of an item, you should should determine that prior to requesting the stack from the
  * inventory.
  */
-public interface IMEInventory<T extends IAEStack<T>>
-{
+public interface IMEInventory<T extends IAEStack<T>> {
 
-	/**
-	 * Store new items, or simulate the addition of new items into the ME Inventory.
-	 *
-	 * @param input item to add.
-	 * @param type action type
-	 * @param src action source
-	 *
-	 * @return returns the number of items not added.
-	 */
-	T injectItems( T input, Actionable type, IActionSource src );
+    /**
+     * Store new items, or simulate the addition of new items into the ME Inventory.
+     *
+     * @param input item to add.
+     * @param type  action type
+     * @param src   action source
+     *
+     * @return returns the number of items not added.
+     */
+    T injectItems(T input, Actionable type, IActionSource src);
 
-	/**
-	 * Extract the specified item from the ME Inventory
-	 *
-	 * @param request item to request ( with stack size. )
-	 * @param mode simulate, or perform action?
-	 *
-	 * @return returns the number of items extracted, null
-	 */
-	T extractItems( T request, Actionable mode, IActionSource src );
+    /**
+     * Extract the specified item from the ME Inventory
+     *
+     * @param request item to request ( with stack size. )
+     * @param mode    simulate, or perform action?
+     *
+     * @return returns the number of items extracted, null
+     */
+    T extractItems(T request, Actionable mode, IActionSource src);
 
-	/**
-	 * request a full report of all available items, storage.
-	 *
-	 * @param out the IItemList the results will be written too
-	 *
-	 * @return returns same list that was passed in, is passed out
-	 */
-	IItemList<T> getAvailableItems( IItemList<T> out );
+    /**
+     * request a full report of all available items, storage.
+     *
+     * @param out the IItemList the results will be written too
+     *
+     * @return returns same list that was passed in, is passed out
+     */
+    IItemList<T> getAvailableItems(IItemList<T> out);
 
-	/**
-	 * @return the type of channel your handler should be part of
-	 */
-	IStorageChannel<T> getChannel();
+    /**
+     * @return the type of channel your handler should be part of
+     */
+    IStorageChannel<T> getChannel();
 }

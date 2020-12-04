@@ -18,151 +18,152 @@
 
 package appeng.core.features.registries;
 
-
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import net.minecraft.block.Block;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.ITag;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ResourceLocation;
 
 import appeng.api.exceptions.AppEngException;
 import appeng.api.movable.IMovableHandler;
 import appeng.api.movable.IMovableRegistry;
 import appeng.api.movable.IMovableTile;
+import appeng.core.AEConfig;
+import appeng.core.AppEng;
 import appeng.spatial.DefaultSpatialHandler;
 
+public class MovableTileRegistry implements IMovableRegistry {
 
-public class MovableTileRegistry implements IMovableRegistry
-{
+    private static final ResourceLocation TAG_WHITELIST = new ResourceLocation(AppEng.MOD_ID, "spatial/whitelist");
+    private static final ResourceLocation TAG_BLACKLIST = new ResourceLocation(AppEng.MOD_ID, "spatial/blacklist");
 
-	private final HashSet<Block> blacklisted = new HashSet<>();
+    private final Set<Block> blacklisted = new HashSet<>();
 
-	private final HashMap<Class<? extends TileEntity>, IMovableHandler> Valid = new HashMap<>();
-	private final List<Class<? extends TileEntity>> test = new ArrayList<>();
-	private final List<IMovableHandler> handlers = new ArrayList<>();
-	private final DefaultSpatialHandler dsh = new DefaultSpatialHandler();
+    private final Map<Class<? extends TileEntity>, IMovableHandler> valid = new IdentityHashMap<>();
+    private final List<Class<? extends TileEntity>> test = new ArrayList<>();
+    private final List<IMovableHandler> handlers = new ArrayList<>();
+    private final DefaultSpatialHandler dsh = new DefaultSpatialHandler();
+    private final IMovableHandler nullHandler = new DefaultSpatialHandler();
+    private final ITag.INamedTag<Block> blockTagWhiteList;
+    private final ITag.INamedTag<Block> blockTagBlackList;
 
-	private final IMovableHandler nullHandler = new DefaultSpatialHandler();
+    public MovableTileRegistry() {
+        this.blockTagWhiteList = BlockTags.makeWrapperTag(TAG_WHITELIST.toString());
+        this.blockTagBlackList = BlockTags.makeWrapperTag(TAG_BLACKLIST.toString());
+    }
 
-	@Override
-	public void blacklistBlock( final Block blk )
-	{
-		this.blacklisted.add( blk );
-	}
+    @Override
+    public void blacklistBlock(final Block blk) {
+        this.blacklisted.add(blk);
+    }
 
-	@Override
-	public void whiteListTileEntity( final Class<? extends TileEntity> c )
-	{
-		if( c.getName().equals( TileEntity.class.getName() ) )
-		{
-			throw new IllegalArgumentException( new AppEngException( "Someone tried to make all tiles movable with " + c + ", this is a clear violation of the purpose of the white list." ) );
-		}
+    @Override
+    public void whiteListTileEntity(final Class<? extends TileEntity> c) {
+        if (c.getName().equals(TileEntity.class.getName())) {
+            throw new IllegalArgumentException(new AppEngException("Someone tried to make all tiles movable with " + c
+                    + ", this is a clear violation of the purpose of the white list."));
+        }
 
-		this.test.add( c );
-	}
+        this.test.add(c);
+    }
 
-	@Override
-	public boolean askToMove( final TileEntity te )
-	{
-		final Class myClass = te.getClass();
-		IMovableHandler canMove = this.Valid.get( myClass );
+    @Override
+    public boolean askToMove(final TileEntity te) {
+        final Class<? extends TileEntity> myClass = te.getClass();
+        IMovableHandler canMove = this.valid.get(myClass);
 
-		if( canMove == null )
-		{
-			canMove = this.testClass( myClass, te );
-		}
+        if (canMove == null) {
+            canMove = this.testClass(myClass, te);
+        }
 
-		if( canMove != this.nullHandler )
-		{
-			if( te instanceof IMovableTile )
-			{
-				( (IMovableTile) te ).prepareToMove();
-			}
+        if (canMove != this.nullHandler) {
+            if (te instanceof IMovableTile) {
+                ((IMovableTile) te).prepareToMove();
+            }
 
-			te.remove();
-			return true;
-		}
+            te.remove();
+            return true;
+        }
 
-		return false;
-	}
+        return false;
+    }
 
-	private IMovableHandler testClass( final Class myClass, final TileEntity te )
-	{
-		IMovableHandler handler = null;
+    private IMovableHandler testClass(final Class<? extends TileEntity> myClass, final TileEntity te) {
+        IMovableHandler handler = null;
 
-		// ask handlers...
-		for( final IMovableHandler han : this.handlers )
-		{
-			if( han.canHandle( myClass, te ) )
-			{
-				handler = han;
-				break;
-			}
-		}
+        // ask handlers...
+        for (final IMovableHandler han : this.handlers) {
+            if (han.canHandle(myClass, te)) {
+                handler = han;
+                break;
+            }
+        }
 
-		// if you have a handler your opted in
-		if( handler != null )
-		{
-			this.Valid.put( myClass, handler );
-			return handler;
-		}
+        // if you have a handler your opted in
+        if (handler != null) {
+            this.valid.put(myClass, handler);
+            return handler;
+        }
 
-		// if your movable our opted in
-		if( te instanceof IMovableTile )
-		{
-			this.Valid.put( myClass, this.dsh );
-			return this.dsh;
-		}
+        // if your movable our opted in
+        if (te instanceof IMovableTile) {
+            this.valid.put(myClass, this.dsh);
+            return this.dsh;
+        }
 
-		// if you are on the white list your opted in.
-		for( final Class<? extends TileEntity> testClass : this.test )
-		{
-			if( testClass.isAssignableFrom( myClass ) )
-			{
-				this.Valid.put( myClass, this.dsh );
-				return this.dsh;
-			}
-		}
+        // if the block itself is via block tags
+        if (AEConfig.instance().getSpatialBlockTags()
+                && this.blockTagWhiteList.contains(te.getBlockState().getBlock())) {
+            this.valid.put(myClass, this.dsh);
+            return this.dsh;
+        }
 
-		this.Valid.put( myClass, this.nullHandler );
-		return this.nullHandler;
-	}
+        // if you are on the white list your opted in.
+        for (final Class<? extends TileEntity> testClass : this.test) {
+            if (testClass.isAssignableFrom(myClass)) {
+                this.valid.put(myClass, this.dsh);
+                return this.dsh;
+            }
+        }
 
-	@Override
-	public void doneMoving( final TileEntity te )
-	{
-		if( te instanceof IMovableTile )
-		{
-			final IMovableTile mt = (IMovableTile) te;
-			mt.doneMoving();
-		}
-	}
+        this.valid.put(myClass, this.nullHandler);
+        return this.nullHandler;
+    }
 
-	@Override
-	public void addHandler( final IMovableHandler han )
-	{
-		this.handlers.add( han );
-	}
+    @Override
+    public void doneMoving(final TileEntity te) {
+        if (te instanceof IMovableTile) {
+            final IMovableTile mt = (IMovableTile) te;
+            mt.doneMoving();
+        }
+    }
 
-	@Override
-	public IMovableHandler getHandler( final TileEntity te )
-	{
-		final Class myClass = te.getClass();
-		final IMovableHandler h = this.Valid.get( myClass );
-		return h == null ? this.dsh : h;
-	}
+    @Override
+    public void addHandler(final IMovableHandler han) {
+        this.handlers.add(han);
+    }
 
-	@Override
-	public IMovableHandler getDefaultHandler()
-	{
-		return this.dsh;
-	}
+    @Override
+    public IMovableHandler getHandler(final TileEntity te) {
+        final Class<? extends TileEntity> myClass = te.getClass();
+        final IMovableHandler h = this.valid.get(myClass);
+        return h == null ? this.dsh : h;
+    }
 
-	@Override
-	public boolean isBlacklisted( final Block blk )
-	{
-		return this.blacklisted.contains( blk );
-	}
+    @Override
+    public IMovableHandler getDefaultHandler() {
+        return this.dsh;
+    }
+
+    @Override
+    public boolean isBlacklisted(final Block blk) {
+        return this.blacklisted.contains(blk) || this.blockTagBlackList.contains(blk);
+    }
 }

@@ -18,50 +18,56 @@
 
 package appeng.client.gui.widgets;
 
+import javax.annotation.Nonnull;
+
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.StringTextComponent;
 
 /**
  * AEBaseGui controlled Tooltip Interface.
  */
-public interface ITooltip
-{
+public interface ITooltip {
 
-	/**
-	 * returns the tooltip message.
-	 *
-	 * @return tooltip message
-	 */
-	String getMessage();
+    /**
+     * Returns the tooltip message.
+     * 
+     * Should use {@link StringTextComponent#EMPTY} for no tooltip
+     *
+     * @return tooltip message
+     */
+    @Nonnull
+    ITextComponent getTooltipMessage();
 
-	/**
-	 * x Location for the object that triggers the tooltip.
-	 *
-	 * @return xPosition
-	 */
-	int xPos();
+    /**
+     * x Location for the object that triggers the tooltip.
+     *
+     * @return xPosition
+     */
+    int getTooltipAreaX();
 
-	/**
-	 * y Location for the object that triggers the tooltip.
-	 *
-	 * @return yPosition
-	 */
-	int yPos();
+    /**
+     * y Location for the object that triggers the tooltip.
+     *
+     * @return yPosition
+     */
+    int getTooltipAreaY();
 
-	/**
-	 * Width of the object that triggers the tooltip.
-	 *
-	 * @return width
-	 */
-	int getWidth();
+    /**
+     * Width of the object that triggers the tooltip.
+     *
+     * @return width
+     */
+    int getTooltipAreaWidth();
 
-	/**
-	 * Height for the object that triggers the tooltip.
-	 *
-	 * @return height
-	 */
-	int getHeight();
+    /**
+     * Height for the object that triggers the tooltip.
+     *
+     * @return height
+     */
+    int getTooltipAreaHeight();
 
-	/**
-	 * @return true if button being drawn
-	 */
-	boolean isVisible();
+    /**
+     * @return true if button being drawn
+     */
+    boolean isTooltipAreaVisible();
 }

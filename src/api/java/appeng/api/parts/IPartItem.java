@@ -23,13 +23,9 @@
 
 package appeng.api.parts;
 
-
-import javax.annotation.Nullable;
-
 import net.minecraft.item.ItemStack;
 
 //@formatter:off
-
 
 /**
  * This is a pretty basic requirement, once you implement the interface, and createPartFromItemStack
@@ -42,24 +38,22 @@ import net.minecraft.item.ItemStack;
  * <code>
  *
  * {@literal @}Override
- * public default ActionResultType onItemUse(ItemStack is, EntityPlayer player, World world, BlockPos pos, EnumHand hand, EnumFacing side, float hitX, float hitY, float hitZ)
+ * public default ActionResultType onItemUse(ItemStack is, PlayerEntity player, World world, BlockPos pos, EnumHand hand, EnumFacing side, float hitX, float hitY, float hitZ)
  *	{
  *		return Api.INSTANCE.partHelper().placeBus( is, pos, side, player, hand, world );
  *	}
  * </code>
  * </pre>
  */
-public interface IPartItem<P extends IPart>
-{
+public interface IPartItem<P extends IPart> {
 
-	/**
-	 * create a new part INSTANCE, from the item stack.
-	 *
-	 * @param is item
-	 *
-	 * @return part from item
-	 */
-	@Nullable
-	P createPartFromItemStack( ItemStack is );
+    /**
+     * create a new part INSTANCE
+     *
+     * @param is ItemStack of this item, may have additional properties.
+     *
+     * @return part from item
+     */
+    P createPart(ItemStack is);
 
 }

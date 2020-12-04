@@ -18,121 +18,115 @@
 
 package appeng.client.render.model;
 
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import net.minecraft.block.BlockState;
-import net.minecraft.client.renderer.Matrix4f;
-import net.minecraft.client.renderer.Vector3f;
 import net.minecraft.client.renderer.model.BakedQuad;
 import net.minecraft.client.renderer.model.IBakedModel;
-import net.minecraft.client.renderer.model.ItemCameraTransforms;
-import net.minecraft.client.renderer.model.ItemOverrideList;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.item.Item;
+import net.minecraft.item.Items;
 import net.minecraft.util.Direction;
-import net.minecraftforge.client.model.pipeline.UnpackedBakedQuad;
-import net.minecraftforge.common.property.IExtendedBlockState;
+import net.minecraft.util.math.vector.Matrix4f;
+import net.minecraft.util.math.vector.Vector3f;
+import net.minecraftforge.client.model.data.IModelData;
+import net.minecraftforge.client.model.pipeline.BakedQuadBuilder;
 
-import appeng.block.storage.BlockDrive;
-import appeng.block.storage.DriveSlotState;
 import appeng.block.storage.DriveSlotsState;
+import appeng.client.render.DelegateBakedModel;
 
+public class DriveBakedModel extends DelegateBakedModel {
+    private final Map<Item, IBakedModel> bakedCells;
+    private final IBakedModel defaultCell;
 
-public class DriveBakedModel implements IBakedModel
-{
-	private final IBakedModel bakedBase;
-	private final Map<DriveSlotState, IBakedModel> bakedCells;
+    public DriveBakedModel(IBakedModel bakedBase, Map<Item, IBakedModel> cellModels, IBakedModel defaultCell) {
+        super(bakedBase);
+        this.bakedCells = cellModels;
+        this.defaultCell = defaultCell;
+    }
 
-	public DriveBakedModel( IBakedModel bakedBase, Map<DriveSlotState, IBakedModel> bakedCells )
-	{
-		this.bakedBase = bakedBase;
-		this.bakedCells = bakedCells;
-	}
+    /**
+     * Calculates the origin of a drive slot for positioning a cell model into it.
+     */
+    public static void getSlotOrigin(int row, int col, Vector3f translation) {
+        // Position this drive model copy at the correct slot. The transform is based on
+        // the cell-model being in slot 0,0,0 while the upper left slot's origin is at
+        // 9,13,1
+        float xOffset = (9 - col * 8) / 16.0f;
+        float yOffset = (13 - row * 3) / 16.0f;
+        float zOffset = 1 / 16.0f;
+        translation.set(xOffset, yOffset, zOffset);
+    }
 
-	@Override
-	public List<BakedQuad> getQuads( @Nullable BlockState state, @Nullable Direction side, long rand )
-	{
+    @Nonnull
+    @Override
+    public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, @Nonnull Random rand,
+            @Nonnull IModelData extraData) {
 
-		List<BakedQuad> result = new ArrayList<>();
+        List<BakedQuad> result = new ArrayList<>(super.getQuads(state, side, rand, extraData));
 
-		result.addAll( this.bakedBase.getQuads( state, side, rand ) );
+        if (!(extraData instanceof DriveModelData)) {
+            return result;
+        }
+        DriveModelData driveModelData = (DriveModelData) extraData;
 
-		if( side == null && state instanceof IExtendedBlockState )
-		{
-			IExtendedBlockState extState = (IExtendedBlockState) state;
-			DriveSlotsState slotsState = extState.getValue( BlockDrive.SLOTS_STATE );
+        DriveSlotsState slotsState = driveModelData.getSlotsState();
 
-			for( int row = 0; row < 5; row++ )
-			{
-				for( int col = 0; col < 2; col++ )
-				{
-					DriveSlotState slotState = slotsState.getState( row * 2 + col );
+        Vector3f slotTranslation = new Vector3f();
+        if (slotsState != null) {
+            for (int row = 0; row < 5; row++) {
+                for (int col = 0; col < 2; col++) {
+                    Matrix4f transform = new Matrix4f();
 
-					IBakedModel bakedCell = this.bakedCells.get( slotState );
+                    getSlotOrigin(row, col, slotTranslation);
+                    transform.setTranslation(slotTranslation.getX(), slotTranslation.getY(), slotTranslation.getZ());
 
-					Matrix4f transform = new Matrix4f();
-					transform.setIdentity();
+                    int slot = row * 2 + col;
 
-					// Position this drive model copy at the correct slot. The transform is based on the
-					// cell-model being in slot 0,0 at the top left of the drive.
-					float xOffset = -col * 7 / 16.0f;
-					float yOffset = -row * 3 / 16.0f;
+                    // Add the drive chassis
+                    Item cell = slotsState.getCell(slot);
+                    IBakedModel cellChassisModel = getCellChassisModel(cell);
+                    addModel(state, rand, extraData, result, side, cellChassisModel, transform);
+                }
+            }
+        }
 
-					transform.setTranslation( new Vector3f( xOffset, yOffset, 0 ) );
+        return result;
+    }
 
-					MatrixVertexTransformer transformer = new MatrixVertexTransformer( transform );
-					for( BakedQuad bakedQuad : bakedCell.getQuads( state, null, rand ) )
-					{
-						UnpackedBakedQuad.Builder builder = new UnpackedBakedQuad.Builder( bakedQuad.getFormat() );
-						transformer.setParent( builder );
-						transformer.setVertexFormat( builder.getVertexFormat() );
-						bakedQuad.pipe( transformer );
-						result.add( builder.build() );
-					}
-				}
-			}
-		}
+    @Override
+    public boolean isAmbientOcclusion() {
+        // We have faces inside the chassis that are facing east, but should not receive
+        // ambient occlusion from the east-side, but sadly this cannot be fine-tuned on
+        // a face-by-face basis.
+        return false;
+    }
 
-		return result;
-	}
+    // Determine which drive chassis to show based on the used cell
+    public IBakedModel getCellChassisModel(Item cell) {
+        if (cell == null) {
+            return bakedCells.get(Items.AIR);
+        }
+        final IBakedModel model = bakedCells.get(cell);
 
-	@Override
-	public boolean isAmbientOcclusion()
-	{
-		return this.bakedBase.isAmbientOcclusion();
-	}
+        return model != null ? model : defaultCell;
+    }
 
-	@Override
-	public boolean isGui3d()
-	{
-		return this.bakedBase.isGui3d();
-	}
+    private static void addModel(@Nullable BlockState state, @Nonnull Random rand, @Nonnull IModelData extraData,
+            List<BakedQuad> result, Direction side, IBakedModel bakedCell, Matrix4f transform) {
+        MatrixVertexTransformer transformer = new MatrixVertexTransformer(transform);
+        for (BakedQuad bakedQuad : bakedCell.getQuads(state, side, rand, extraData)) {
+            BakedQuadBuilder builder = new BakedQuadBuilder();
+            transformer.setParent(builder);
+            transformer.setVertexFormat(builder.getVertexFormat());
+            bakedQuad.pipe(transformer);
+            result.add(builder.build());
+        }
+    }
 
-	@Override
-	public boolean isBuiltInRenderer()
-	{
-		return this.bakedBase.isGui3d();
-	}
-
-	@Override
-	public TextureAtlasSprite getParticleTexture()
-	{
-		return this.bakedBase.getParticleTexture();
-	}
-
-	@Override
-	public ItemCameraTransforms getItemCameraTransforms()
-	{
-		return this.bakedBase.getItemCameraTransforms();
-	}
-
-	@Override
-	public ItemOverrideList getOverrides()
-	{
-		return this.bakedBase.getOverrides();
-	}
 }

@@ -23,31 +23,29 @@
 
 package appeng.api.networking;
 
-
 import java.util.Map;
 
 import javax.annotation.Nonnull;
 
-
 /**
  * A registry of grid caches to extend grid functionality.
  */
-public interface IGridCacheRegistry
-{
+public interface IGridCacheRegistry {
 
-	/**
-	 * Register a new grid cache for use during operation, must be called during the loading phase.
-	 *
-	 * @param iface grid cache class
-	 */
-	void registerGridCache( @Nonnull Class<? extends IGridCache> iface, @Nonnull Class<? extends IGridCache> implementation );
+    /**
+     * Register a new grid cache for use during operation, must be called during the loading phase.
+     *
+     * @param iface   grid cache class
+     * @param factory Factory for creating a new instance for each constructed grid
+     */
+    <T extends IGridCache> void registerGridCache(@Nonnull Class<T> iface, @Nonnull IGridCacheFactory<T> factory);
 
-	/**
-	 * requests a new INSTANCE of a grid cache for use, used internally
-	 *
-	 * @param grid grid
-	 *
-	 * @return a new Map of IGridCaches from the registry, called from IGrid when constructing a new grid.
-	 */
-	Map<Class<? extends IGridCache>, IGridCache> createCacheInstance( IGrid grid );
+    /**
+     * requests a new INSTANCE of a grid cache for use, used internally
+     *
+     * @param grid grid
+     *
+     * @return a new Map of IGridCaches from the registry, called from IGrid when constructing a new grid.
+     */
+    Map<Class<? extends IGridCache>, IGridCache> createCacheInstance(IGrid grid);
 }

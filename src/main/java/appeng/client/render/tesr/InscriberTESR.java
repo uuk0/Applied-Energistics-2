@@ -1,204 +1,228 @@
 
 package appeng.client.render.tesr;
 
-
 import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.vertex.IVertexBuilder;
-import net.minecraft.client.renderer.*;
-import net.minecraft.client.renderer.model.ItemCameraTransforms;
-import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.IRenderTypeBuffer;
+import net.minecraft.client.renderer.ItemRenderer;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.model.ItemCameraTransforms;
+import net.minecraft.client.renderer.model.RenderMaterial;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.renderer.tileentity.TileEntityRenderer;
-import net.minecraft.item.BlockItem;
+import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
+import net.minecraft.inventory.container.PlayerContainer;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.Direction;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.vector.Quaternion;
 import net.minecraftforge.client.event.TextureStitchEvent;
 import net.minecraftforge.items.IItemHandler;
 
-import appeng.api.features.IInscriberRecipe;
+import appeng.api.features.InscriberProcessType;
 import appeng.client.render.FacingToRotation;
 import appeng.core.AppEng;
-import appeng.tile.AEBaseTile;
-import appeng.tile.misc.TileInscriber;
-
+import appeng.recipes.handlers.InscriberRecipe;
+import appeng.tile.misc.InscriberTileEntity;
 
 /**
  * Renders the dynamic parts of an inscriber (the presses, the animation and the item being smashed)
  */
-public final class InscriberTESR extends TileEntityRenderer<TileInscriber>
-{
+public final class InscriberTESR extends TileEntityRenderer<InscriberTileEntity> {
 
-	private static final float ITEM_RENDER_SCALE = 1.0f / 1.2f;
+    private static final float ITEM_RENDER_SCALE = 1.0f / 1.2f;
 
-	private static final ResourceLocation TEXTURE_INSIDE = new ResourceLocation( AppEng.MOD_ID, "blocks/inscriber_inside" );
+    private static final RenderMaterial TEXTURE_INSIDE = new RenderMaterial(PlayerContainer.LOCATION_BLOCKS_TEXTURE,
+            new ResourceLocation(AppEng.MOD_ID, "block/inscriber_inside"));
 
-	private static TextureAtlasSprite textureInside;
+    public InscriberTESR(TileEntityRendererDispatcher rendererDispatcherIn) {
+        super(rendererDispatcherIn);
+    }
 
-	public InscriberTESR(TileEntityRendererDispatcher rendererDispatcherIn) {
-		super(rendererDispatcherIn);
-	}
+    @Override
+    public void render(InscriberTileEntity tile, float partialTicks, MatrixStack ms, IRenderTypeBuffer buffers,
+            int combinedLight, int combinedOverlay) {
 
-	@Override
-	public void render(TileInscriber tile, float partialTicks, MatrixStack ms, IRenderTypeBuffer buffers, int combinedLight, int combinedOverlay) {
+        // render inscriber
 
-		// render inscriber
+        ms.push();
+        ms.translate(0.5F, 0.5F, 0.5F);
+        FacingToRotation.get(tile.getForward(), tile.getUp()).push(ms);
+        ms.translate(-0.5F, -0.5F, -0.5F);
 
-		ms.push();
-		ms.translate( 0.5F, 0.5F, 0.5F );
-		FacingToRotation.get( tile.getForward(), tile.getUp() ).push(ms);
-		ms.translate( -0.5F, -0.5F, -0.5F );
+        // render sides of stamps
 
-		// FIXME RenderSystem.color4f( 1.0F, 1.0F, 1.0F, 1.0F );
-		// FIXME RenderSystem.disableLighting();
-		// FIXME RenderSystem.disableRescaleNormal();
+        long absoluteProgress = 0;
 
-		// render sides of stamps
+        if (tile.isSmash()) {
+            final long currentTime = System.currentTimeMillis();
+            absoluteProgress = currentTime - tile.getClientStart();
+            if (absoluteProgress > 800) {
+                tile.setSmash(false);
+            }
+        }
 
-		Minecraft mc = Minecraft.getInstance();
-//		FIXME RenderingEngine.getInstance().bindTexture( AtlasTexture.LOCATION_BLOCKS_TEXTURE );
+        final float relativeProgress = absoluteProgress % 800 / 400.0f;
+        float progress = relativeProgress;
 
-		// << 20 | light << 4;
-		// FIXME final int br = combinedLight;
-		// FIXME final int var11 = br % 65536;
-		// FIXME final int var12 = br / 65536;
+        if (progress > 1.0f) {
+            progress = 1.0f - (easeDecompressMotion(progress - 1.0f));
+        } else {
+            progress = easeCompressMotion(progress);
+        }
 
-		// FIXME OpenGlHelper.setLightmapTextureCoords( OpenGlHelper.lightmapTexUnit, var11, var12 );
+        float press = 0.2f;
+        press -= progress / 5.0f;
 
-		long absoluteProgress = 0;
+        float middle = 0.5f;
+        middle += 0.02f;
+        final float TwoPx = 2.0f / 16.0f;
+        final float base = 0.4f;
 
-		if( tile.isSmash() )
-		{
-			final long currentTime = System.currentTimeMillis();
-			absoluteProgress = currentTime - tile.getClientStart();
-			if( absoluteProgress > 800 )
-			{
-				tile.setSmash( false );
-			}
-		}
+        final TextureAtlasSprite tas = TEXTURE_INSIDE.getSprite();
 
-		final float relativeProgress = absoluteProgress % 800 / 400.0f;
-		float progress = relativeProgress;
+        IVertexBuilder buffer = buffers.getBuffer(RenderType.getSolid());
 
-		if( progress > 1.0f )
-		{
-			progress = 1.0f - ( progress - 1.0f );
-		}
-		float press = 0.2f;
-		press -= progress / 5.0f;
+        // Bottom of Top Stamp
+        addVertex(buffer, ms, tas, TwoPx, middle + press, TwoPx, 2, 13, combinedOverlay, combinedLight, Direction.DOWN);
+        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle + press, TwoPx, 14, 13, combinedOverlay, combinedLight,
+                Direction.DOWN);
+        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle + press, 1.0f - TwoPx, 14, 2, combinedOverlay, combinedLight,
+                Direction.DOWN);
+        addVertex(buffer, ms, tas, TwoPx, middle + press, 1.0f - TwoPx, 2, 2, combinedOverlay, combinedLight,
+                Direction.DOWN);
 
-		IVertexBuilder buffer = buffers.getBuffer(RenderType.getSolid());
+        // Front of Top Stamp
+        addVertex(buffer, ms, tas, TwoPx, middle + base, TwoPx, 2, 3 - 16 * (press - base), combinedOverlay,
+                combinedLight, Direction.NORTH);
+        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle + base, TwoPx, 14, 3 - 16 * (press - base), combinedOverlay,
+                combinedLight, Direction.NORTH);
+        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle + press, TwoPx, 14, 3, combinedOverlay, combinedLight,
+                Direction.NORTH);
+        addVertex(buffer, ms, tas, TwoPx, middle + press, TwoPx, 2, 3, combinedOverlay, combinedLight, Direction.NORTH);
 
-//		final BufferBuilder buffer = Tessellator.getInstance().getBuffer();
-		// FIXME buffer.begin( GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX );
+        // Top of Bottom Stamp
+        middle -= 2.0f * 0.02f;
+        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle - press, TwoPx, 2, 13, combinedOverlay, combinedLight,
+                Direction.UP);
+        addVertex(buffer, ms, tas, TwoPx, middle - press, TwoPx, 14, 13, combinedOverlay, combinedLight, Direction.UP);
+        addVertex(buffer, ms, tas, TwoPx, middle - press, 1.0f - TwoPx, 14, 2, combinedOverlay, combinedLight,
+                Direction.UP);
+        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle - press, 1.0f - TwoPx, 2, 2, combinedOverlay, combinedLight,
+                Direction.UP);
 
-		float middle = 0.5f;
-		middle += 0.02f;
-		final float TwoPx = 2.0f / 16.0f;
-		final float base = 0.4f;
+        // Front of Bottom Stamp
+        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle + -base, TwoPx, 2, 3 - 16 * (press - base), combinedOverlay,
+                combinedLight, Direction.NORTH);
+        addVertex(buffer, ms, tas, TwoPx, middle - base, TwoPx, 14, 3 - 16 * (press - base), combinedOverlay,
+                combinedLight, Direction.NORTH);
+        addVertex(buffer, ms, tas, TwoPx, middle - press, TwoPx, 14, 3, combinedOverlay, combinedLight,
+                Direction.NORTH);
+        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle - press, TwoPx, 2, 3, combinedOverlay, combinedLight,
+                Direction.NORTH);
 
-		final TextureAtlasSprite tas = textureInside;
-		if( tas != null )
-		{
-			// Bottom of Top Stamp
-			buffer.pos( TwoPx, middle + press, TwoPx ).tex( tas.getInterpolatedU( 2 ), tas.getInterpolatedV( 13 ) ).endVertex();
-			buffer.pos( 1.0 - TwoPx, middle + press, TwoPx ).tex( tas.getInterpolatedU( 14 ), tas.getInterpolatedV( 13 ) ).endVertex();
-			buffer.pos( 1.0 - TwoPx, middle + press, 1.0 - TwoPx ).tex( tas.getInterpolatedU( 14 ), tas.getInterpolatedV( 2 ) ).endVertex();
-			buffer.pos( TwoPx, middle + press, 1.0 - TwoPx ).tex( tas.getInterpolatedU( 2 ), tas.getInterpolatedV( 2 ) ).endVertex();
+        // render items.
 
-			// Front of Top Stamp
-			buffer.pos( TwoPx, middle + base, TwoPx ).tex( tas.getInterpolatedU( 2 ), tas.getInterpolatedV( 3 - 16 * ( press - base ) ) ).endVertex();
-			buffer.pos( 1.0 - TwoPx, middle + base, TwoPx ).tex( tas.getInterpolatedU( 14 ), tas.getInterpolatedV( 3 - 16 * ( press - base ) ) ).endVertex();
-			buffer.pos( 1.0 - TwoPx, middle + press, TwoPx ).tex( tas.getInterpolatedU( 14 ), tas.getInterpolatedV( 3 ) ).endVertex();
-			buffer.pos( TwoPx, middle + press, TwoPx ).tex( tas.getInterpolatedU( 2 ), tas.getInterpolatedV( 3 ) ).endVertex();
+        IItemHandler tileInv = tile.getInternalInventory();
 
-			// Top of Bottom Stamp
-			middle -= 2.0f * 0.02f;
-			buffer.pos( 1.0 - TwoPx, middle - press, TwoPx ).tex( tas.getInterpolatedU( 2 ), tas.getInterpolatedV( 13 ) ).endVertex();
-			buffer.pos( TwoPx, middle - press, TwoPx ).tex( tas.getInterpolatedU( 14 ), tas.getInterpolatedV( 13 ) ).endVertex();
-			buffer.pos( TwoPx, middle - press, 1.0 - TwoPx ).tex( tas.getInterpolatedU( 14 ), tas.getInterpolatedV( 2 ) ).endVertex();
-			buffer.pos( 1.0 - TwoPx, middle - press, 1.0 - TwoPx ).tex( tas.getInterpolatedU( 2 ), tas.getInterpolatedV( 2 ) ).endVertex();
+        int items = 0;
+        if (!tileInv.getStackInSlot(0).isEmpty()) {
+            items++;
+        }
+        if (!tileInv.getStackInSlot(1).isEmpty()) {
+            items++;
+        }
+        if (!tileInv.getStackInSlot(2).isEmpty()) {
+            items++;
+        }
 
-			// Front of Bottom Stamp
-			buffer.pos( 1.0 - TwoPx, middle + -base, TwoPx ).tex( tas.getInterpolatedU( 2 ), tas.getInterpolatedV( 3 - 16 * ( press - base ) ) ).endVertex();
-			buffer.pos( TwoPx, middle - base, TwoPx ).tex( tas.getInterpolatedU( 14 ), tas.getInterpolatedV( 3 - 16 * ( press - base ) ) ).endVertex();
-			buffer.pos( TwoPx, middle - press, TwoPx ).tex( tas.getInterpolatedU( 14 ), tas.getInterpolatedV( 3 ) ).endVertex();
-			buffer.pos( 1.0 - TwoPx, middle - press, TwoPx ).tex( tas.getInterpolatedU( 2 ), tas.getInterpolatedV( 3 ) ).endVertex();
-		}
+        boolean renderPresses;
+        if (relativeProgress > 1.0f || items == 0) {
+            // When crafting completes, dont render the presses (they mave have been
+            // consumed, see below)
+            renderPresses = false;
 
-		// render items.
-//		FIXME RenderSystem.color4f( 1.0F, 1.0F, 1.0F, 1.0F );
+            ItemStack is = tileInv.getStackInSlot(3);
 
-		IItemHandler tileInv = tile.getInternalInventory();
+            if (is.isEmpty()) {
+                final InscriberRecipe ir = tile.getTask();
+                if (ir != null) {
+                    // The "PRESS" type will consume the presses so they should not render after
+                    // completing
+                    // the press animation
+                    renderPresses = ir.getProcessType() == InscriberProcessType.INSCRIBE;
+                    is = ir.getOutput().copy();
+                }
+            }
+            this.renderItem(ms, is, 0.0f, buffers, combinedLight, combinedOverlay);
+        } else {
+            renderPresses = true;
+            this.renderItem(ms, tileInv.getStackInSlot(2), 0.0f, buffers, combinedLight, combinedOverlay);
+        }
 
-		int items = 0;
-		if( !tileInv.getStackInSlot( 0 ).isEmpty() )
-		{
-			items++;
-		}
-		if( !tileInv.getStackInSlot( 1 ).isEmpty() )
-		{
-			items++;
-		}
-		if( !tileInv.getStackInSlot( 2 ).isEmpty() )
-		{
-			items++;
-		}
+        if (renderPresses) {
+            this.renderItem(ms, tileInv.getStackInSlot(0), press, buffers, combinedLight, combinedOverlay);
+            this.renderItem(ms, tileInv.getStackInSlot(1), -press, buffers, combinedLight, combinedOverlay);
+        }
 
-		if( relativeProgress > 1.0f || items == 0 )
-		{
-			ItemStack is = tileInv.getStackInSlot( 3 );
+        ms.pop();
+    }
 
-			if( is.isEmpty() )
-			{
-				final IInscriberRecipe ir = tile.getTask();
-				if( ir != null )
-				{
-					is = ir.getOutput().copy();
-				}
-			}
+    private static void addVertex(IVertexBuilder vb, MatrixStack ms, TextureAtlasSprite sprite, float x, float y,
+            float z, double texU, double texV, int overlayUV, int lightmapUV, Direction front) {
+        vb.pos(ms.getLast().getMatrix(), x, y, z);
+        vb.color(1.0f, 1.0f, 1.0f, 1.0f);
+        vb.tex(sprite.getInterpolatedU(texU), sprite.getInterpolatedV(texV));
+        vb.overlay(overlayUV);
+        vb.lightmap(lightmapUV);
+        vb.normal(ms.getLast().getNormal(), front.getXOffset(), front.getYOffset(), front.getZOffset());
+        vb.endVertex();
+    }
 
-			this.renderItem( ms, is, 0.0f, buffers, combinedLight, combinedOverlay );
-		}
-		else
-		{
-			this.renderItem( ms, tileInv.getStackInSlot( 0 ), press, buffers, combinedLight, combinedOverlay );
-			this.renderItem( ms, tileInv.getStackInSlot( 1 ), -press, buffers, combinedLight, combinedOverlay );
-			this.renderItem( ms, tileInv.getStackInSlot( 2 ), 0.0f, buffers, combinedLight, combinedOverlay );
-		}
+    private static final ResourceLocation TAG_STORAGE_BLOCKS = new ResourceLocation("forge:storage_blocks");
 
-		ms.pop();
-		// FIXME RenderSystem.enableLighting();
-		// FIXME GlStateManager.enableRescaleNormal();
-	}
+    private void renderItem(MatrixStack ms, final ItemStack stack, final float o, IRenderTypeBuffer buffers,
+            int combinedLight, int combinedOverlay) {
+        if (!stack.isEmpty()) {
+            ms.push();
+            // move to center
+            ms.translate(0.5f, 0.5f + o, 0.5f);
+            ms.rotate(new Quaternion(90, 0, 0, true));
+            // set scale
+            ms.scale(ITEM_RENDER_SCALE, ITEM_RENDER_SCALE, ITEM_RENDER_SCALE);
 
-	private void renderItem( MatrixStack ms, final ItemStack stack, final float o, IRenderTypeBuffer buffers, int combinedLight, int combinedOverlay )
-	{
-		if( !stack.isEmpty() )
-		{
-			final ItemStack sis = stack.copy(); // FIXME WHY????
+            ItemRenderer itemRenderer = Minecraft.getInstance().getItemRenderer();
 
-			ms.push();
-			// move to center
-			ms.translate( 0.5f, 0.5f + o, 0.5f );
-			ms.rotate( new Quaternion(90, 0, 0, true) );
-			// set scale
-			ms.scale( ITEM_RENDER_SCALE, ITEM_RENDER_SCALE, ITEM_RENDER_SCALE );
+            // heuristic to scale items down much further than blocks
+            if (!stack.getItem().getTags().contains(TAG_STORAGE_BLOCKS)) {
+                ms.scale(0.5f, 0.5f, 0.5f);
+            }
 
-			// heuristic to scale items down much further than blocks
-			if( !( sis.getItem() instanceof BlockItem ) )
-			{
-				ms.scale( 0.5f, 0.5f, 0.5f );
-			}
+            itemRenderer.renderItem(stack, ItemCameraTransforms.TransformType.FIXED, combinedLight, combinedOverlay, ms,
+                    buffers);
+            ms.pop();
+        }
+    }
 
-			Minecraft.getInstance().getItemRenderer().renderItem(sis, ItemCameraTransforms.TransformType.FIXED, combinedLight, combinedOverlay, ms, buffers);
-			ms.pop();
-		}
-	}
+    public static void registerTexture(TextureStitchEvent.Pre evt) {
+        if (evt.getMap().getTextureLocation().equals(TEXTURE_INSIDE.getAtlasLocation())) {
+            evt.addSprite(TEXTURE_INSIDE.getTextureLocation());
+        }
+    }
 
-	public static void registerTexture( TextureStitchEvent.Pre event )
-	{
-		// FIXME textureInside = event.getMap().registerSprite( TEXTURE_INSIDE );
-	}
+    // See https://easings.net/#easeOutBack
+    private static float easeCompressMotion(float x) {
+        float c1 = 1.70158f;
+        float c3 = c1 + 1;
+
+        return (float) (1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2));
+    }
+
+    // See https://easings.net/#easeInQuint
+    private static float easeDecompressMotion(float x) {
+        return x * x * x * x * x;
+    }
+
 }

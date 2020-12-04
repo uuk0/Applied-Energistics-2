@@ -18,8 +18,8 @@
 
 package appeng.client.render.crafting;
 
-
 import com.mojang.blaze3d.matrix.MatrixStack;
+
 import net.minecraft.client.renderer.IRenderTypeBuffer;
 import net.minecraft.client.renderer.tileentity.TileEntityRenderer;
 import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
@@ -29,36 +29,36 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 
 import appeng.api.storage.data.IAEItemStack;
 import appeng.client.render.TesrRenderHelper;
-import appeng.tile.crafting.TileCraftingMonitorTile;
-
+import appeng.tile.crafting.CraftingMonitorTileEntity;
 
 /**
  * Renders the item currently being crafted
  */
-@OnlyIn( Dist.CLIENT )
-public class CraftingMonitorTESR extends TileEntityRenderer<TileCraftingMonitorTile>
-{
+@OnlyIn(Dist.CLIENT)
+public class CraftingMonitorTESR extends TileEntityRenderer<CraftingMonitorTileEntity> {
 
-	public CraftingMonitorTESR(TileEntityRendererDispatcher rendererDispatcherIn) {
-		super(rendererDispatcherIn);
-	}
+    public CraftingMonitorTESR(TileEntityRendererDispatcher rendererDispatcherIn) {
+        super(rendererDispatcherIn);
+    }
 
-	@Override
-	public void render(TileCraftingMonitorTile te, float partialTicks, MatrixStack matrixStack, IRenderTypeBuffer buffers, int combinedLight, int combinedOverlay) {
+    @Override
+    public void render(CraftingMonitorTileEntity te, float partialTicks, MatrixStack matrixStack,
+            IRenderTypeBuffer buffers, int combinedLight, int combinedOverlay) {
 
-		Direction facing = te.getForward();
+        Direction facing = te.getForward();
 
-		IAEItemStack jobProgress = te.getJobProgress();
-		if( jobProgress != null )
-		{
-			matrixStack.push();
-			matrixStack.translate(0.5, 0.5, 0.5);
+        IAEItemStack jobProgress = te.getJobProgress();
 
-			TesrRenderHelper.moveToFace( matrixStack, facing );
-			TesrRenderHelper.rotateToFace( matrixStack, facing, (byte) 0 );
-			TesrRenderHelper.renderItem2dWithAmount(matrixStack, buffers, jobProgress, 0.7f, 0.1f );
+        if (jobProgress != null) {
+            matrixStack.push();
+            matrixStack.translate(0.5, 0.5, 0.5); // Move to the center of the block
 
-			matrixStack.pop();
-		}
-	}
+            TesrRenderHelper.rotateToFace(matrixStack, facing, (byte) 0);
+            matrixStack.translate(0, 0.08, 0.5);
+            TesrRenderHelper.renderItem2dWithAmount(matrixStack, buffers, jobProgress, 0.3f, -0.18f, 15728880,
+                    combinedOverlay);
+
+            matrixStack.pop();
+        }
+    }
 }

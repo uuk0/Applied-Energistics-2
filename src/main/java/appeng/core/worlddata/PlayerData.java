@@ -18,26 +18,26 @@
 
 package appeng.core.worlddata;
 
+import java.util.Map;
+import java.util.UUID;
 
-import appeng.core.AELog;
-import appeng.core.AppEng;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.mojang.authlib.GameProfile;
+
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.world.storage.WorldSavedData;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.Map;
-import java.util.UUID;
-
+import appeng.core.AELog;
+import appeng.core.AppEng;
 
 /**
- * Handles the matching between UUIDs and internal IDs for security systems.
- * This whole system could be replaced by storing directly the UUID,
- * using a lot more traffic though
+ * Handles the matching between UUIDs and internal IDs for security systems. This whole system could be replaced by
+ * storing directly the UUID, using a lot more traffic though
  *
  * @author thatsIch
  * @version rv3 - 30.05.2015
@@ -76,7 +76,8 @@ final class PlayerData extends WorldSavedData implements IWorldPlayerData {
             this.mapping.put(profile.getId(), playerId);
             markDirty();
 
-            AELog.info("Assigning ME player id {} to Minecraft profile {} ({})", playerId, profile.getId(), profile.getName());
+            AELog.info("Assigning ME player id %s to Minecraft profile %s (%s)", playerId, profile.getId(),
+                    profile.getName());
         }
 
         return playerId;
@@ -88,9 +89,8 @@ final class PlayerData extends WorldSavedData implements IWorldPlayerData {
         long[] profileIds = nbt.getLongArray(TAG_PROFILE_IDS);
 
         if (playerIds.length * 2 != profileIds.length) {
-            throw new IllegalStateException("Plaer ID mapping is corrupted. "
-                    + playerIds.length + " player IDs vs. " + profileIds.length
-                    + " profile IDs (latter must be 2 * the former)");
+            throw new IllegalStateException("Plaer ID mapping is corrupted. " + playerIds.length + " player IDs vs. "
+                    + profileIds.length + " profile IDs (latter must be 2 * the former)");
         }
 
         this.mapping.clear();
@@ -100,7 +100,7 @@ final class PlayerData extends WorldSavedData implements IWorldPlayerData {
             UUID profileId = new UUID(profileIds[i * 2], profileIds[i * 2 + 1]);
             highestPlayerId = Math.max(playerId, highestPlayerId);
             mapping.put(profileId, playerId);
-            AELog.debug("AE player ID {} is assigned to profile ID {}", playerId, profileId);
+            AELog.debug("AE player ID %s is assigned to profile ID %s", playerId, profileId);
         }
         this.nextPlayerId = highestPlayerId + 1;
     }

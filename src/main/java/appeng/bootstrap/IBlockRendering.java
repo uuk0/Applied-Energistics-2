@@ -18,45 +18,31 @@
 
 package appeng.bootstrap;
 
-
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.color.IBlockColor;
 import net.minecraft.client.renderer.model.IBakedModel;
-import net.minecraft.client.renderer.model.IUnbakedModel;
-import net.minecraft.client.renderer.model.ModelResourceLocation;
-import net.minecraft.client.renderer.tileentity.TileEntityRenderer;
-import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 
-
 /**
  * Allows for client-side rendering to be customized in the context of block/item registration.
  */
-public interface IBlockRendering
-{
+public interface IBlockRendering {
 
-	@OnlyIn( Dist.CLIENT )
-	IBlockRendering modelCustomizer( BiFunction<ResourceLocation, IBakedModel, IBakedModel> customizer );
+    @OnlyIn(Dist.CLIENT)
+    IBlockRendering modelCustomizer(BiFunction<ResourceLocation, IBakedModel, IBakedModel> customizer);
 
-	@OnlyIn( Dist.CLIENT )
-	IBlockRendering blockColor( IBlockColor blockColor );
+    @OnlyIn(Dist.CLIENT)
+    IBlockRendering blockColor(IBlockColor blockColor);
 
-	/**
-	 * Registers a built-in model under the given resource path.
-	 */
-	@OnlyIn( Dist.CLIENT )
-	IBlockRendering builtInModel( String name, IUnbakedModel model );
+    @OnlyIn(Dist.CLIENT)
+    IBlockRendering renderType(RenderType type);
 
-	@OnlyIn( Dist.CLIENT )
-	IBlockRendering renderType(RenderType type);
-
-	@OnlyIn( Dist.CLIENT )
-	IBlockRendering renderType(Predicate<RenderType> type);
+    @OnlyIn(Dist.CLIENT)
+    IBlockRendering renderType(Predicate<RenderType> type);
 
 }

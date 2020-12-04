@@ -18,194 +18,126 @@
 
 package appeng.services.compass;
 
-
-import java.io.File;
-import java.io.RandomAccessFile;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-
-import javax.annotation.Nonnull;
-
 import com.google.common.base.Preconditions;
 
-import appeng.core.worlddata.MeteorDataNameEncoder;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.world.server.ServerWorld;
+import net.minecraft.world.storage.WorldSavedData;
 
+final class CompassRegion {
+    private final int lowX;
+    private final int lowZ;
+    private final ServerWorld world;
+    private SaveData data;
 
-public final class CompassRegion
-{
-	private final int lowX;
-	private final int lowZ;
-	private final int world;
-	private final File worldCompassFolder;
-	private final MeteorDataNameEncoder encoder;
+    public CompassRegion(ServerWorld world, final int cx, final int cz) {
+        Preconditions.checkNotNull(world);
 
-	private boolean hasFile = false;
-	private RandomAccessFile raf = null;
-	private ByteBuffer buffer;
+        this.world = world;
 
-	public CompassRegion( final int cx, final int cz, final int worldID, @Nonnull final File worldCompassFolder )
-	{
-		Preconditions.checkNotNull( worldCompassFolder );
-		Preconditions.checkArgument( worldCompassFolder.isDirectory() );
+        final int region_x = cx >> 10;
+        final int region_z = cz >> 10;
 
-		this.world = worldID;
-		this.worldCompassFolder = worldCompassFolder;
-		this.encoder = new MeteorDataNameEncoder( 0 );
+        this.lowX = region_x << 10;
+        this.lowZ = region_z << 10;
 
-		final int region_x = cx >> 10;
-		final int region_z = cz >> 10;
+        this.openData(false);
+    }
 
-		this.lowX = region_x << 10;
-		this.lowZ = region_z << 10;
+    void close() {
+        if (this.data != null) {
+            this.data = null;
+        }
+    }
 
-		this.openFile( false );
-	}
+    boolean hasBeacon(int cx, int cz) {
+        if (this.data != null) {
+            cx &= 0x3FF;
+            cz &= 0x3FF;
 
-	void close()
-	{
-		try
-		{
-			if( this.hasFile )
-			{
-				this.buffer = null;
-				this.raf.close();
-				this.raf = null;
-				this.hasFile = false;
-			}
-		}
-		catch( final Throwable t )
-		{
-			throw new CompassException( t );
-		}
-	}
+            final int val = this.read(cx, cz);
+            return val != 0;
+        }
 
-	boolean hasBeacon( int cx, int cz )
-	{
-		if( this.hasFile )
-		{
-			cx &= 0x3FF;
-			cz &= 0x3FF;
+        return false;
+    }
 
-			final int val = this.read( cx, cz );
-			if( val != 0 )
-			{
-				return true;
-			}
-		}
+    void setHasBeacon(int cx, int cz, final int cdy, final boolean hasBeacon) {
+        cx &= 0x3FF;
+        cz &= 0x3FF;
 
-		return false;
-	}
+        this.openData(hasBeacon);
 
-	void setHasBeacon( int cx, int cz, final int cdy, final boolean hasBeacon )
-	{
-		cx &= 0x3FF;
-		cz &= 0x3FF;
+        if (this.data != null) {
+            int val = this.read(cx, cz);
+            final int originalVal = val;
 
-		this.openFile( hasBeacon );
+            if (hasBeacon) {
+                val |= 1 << cdy;
+            } else {
+                val &= ~(1 << cdy);
+            }
 
-		if( this.hasFile )
-		{
-			int val = this.read( cx, cz );
-			final int originalVal = val;
+            if (originalVal != val) {
+                this.write(cx, cz, val);
+            }
+        }
+    }
 
-			if( hasBeacon )
-			{
-				val |= 1 << cdy;
-			}
-			else
-			{
-				val &= ~( 1 << cdy );
-			}
+    private void openData(final boolean create) {
+        if (this.data != null) {
+            return;
+        }
 
-			if( originalVal != val )
-			{
-				this.write( cx, cz, val );
-			}
-		}
-	}
+        String name = this.lowX + "_" + this.lowZ;
 
-	@Override
-	protected void finalize() throws Throwable
-	{
-		try
-		{
-			if( this.raf != null )
-			{
-				this.raf.close();
-			}
-		}
-		finally
-		{
-			super.finalize();
-		}
+        if (create) {
+            this.data = world.getSavedData().getOrCreate(() -> new SaveData(name), name);
+            if (this.data.bitmap == null) {
+                this.data.bitmap = new byte[SaveData.BITMAP_LENGTH];
+            }
+        } else {
+            this.data = world.getSavedData().get(() -> new SaveData(name), name);
+        }
+    }
 
-	}
+    private int read(final int cx, final int cz) {
+        try {
+            return this.data.bitmap[cx + cz * 0x400];
+        } catch (final IndexOutOfBoundsException outOfBounds) {
+            return 0;
+        }
+    }
 
-	private void openFile( final boolean create )
-	{
-		if( this.hasFile )
-		{
-			return;
-		}
+    private void write(final int cx, final int cz, final int val) {
+        this.data.bitmap[cx + cz * 0x400] = (byte) val;
+        this.data.markDirty();
+    }
 
-		final File file = this.getFile();
-		if( create || this.isFileExistent( file ) )
-		{
-			try
-			{
-				this.raf = new RandomAccessFile( file, "rw" );
-				final FileChannel fc = this.raf.getChannel();
-				this.buffer = fc.map( FileChannel.MapMode.READ_WRITE, 0, 0x400 * 0x400 );// fc.size() );
-				this.hasFile = true;
-			}
-			catch( final Throwable t )
-			{
-				throw new CompassException( t );
-			}
-		}
-	}
+    private static class SaveData extends WorldSavedData {
 
-	private File getFile()
-	{
-		final String fileName = this.encoder.encode( this.world, this.lowX, this.lowZ );
+        private static final int BITMAP_LENGTH = 0x400 * 0x400;
 
-		return new File( this.worldCompassFolder, fileName );
-	}
+        private byte[] bitmap;
 
-	private boolean isFileExistent( final File file )
-	{
-		return file.exists() && file.isFile();
-	}
+        public SaveData(String name) {
+            super(name);
+        }
 
-	private int read( final int cx, final int cz )
-	{
-		try
-		{
-			return this.buffer.get( cx + cz * 0x400 );
-			// raf.seek( cx + cz * 0x400 );
-			// return raf.readByte();
-		}
-		catch( final IndexOutOfBoundsException outOfBounds )
-		{
-			return 0;
-		}
-		catch( final Throwable t )
-		{
-			throw new CompassException( t );
-		}
-	}
+        @Override
+        public void read(CompoundNBT nbt) {
+            this.bitmap = nbt.getByteArray("b");
+            if (this.bitmap.length != BITMAP_LENGTH) {
+                throw new IllegalStateException("Invalid bitmap length: " + bitmap.length);
+            }
+        }
 
-	private void write( final int cx, final int cz, final int val )
-	{
-		try
-		{
-			this.buffer.put( cx + cz * 0x400, (byte) val );
-			// raf.seek( cx + cz * 0x400 );
-			// raf.writeByte( val );
-		}
-		catch( final Throwable t )
-		{
-			throw new CompassException( t );
-		}
-	}
+        @Override
+        public CompoundNBT write(CompoundNBT compound) {
+            compound.putByteArray("b", bitmap);
+            return compound;
+        }
+
+    }
+
 }

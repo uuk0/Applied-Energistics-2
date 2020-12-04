@@ -23,101 +23,111 @@
 
 package appeng.api.definitions;
 
-
 import appeng.api.util.AEColoredItemDefinition;
-
 
 /**
  * A list of all items in AE
  */
-public interface IItems
-{
-	IItemDefinition certusQuartzAxe();
+public interface IItems {
+    IItemDefinition certusQuartzAxe();
 
-	IItemDefinition certusQuartzHoe();
+    IItemDefinition certusQuartzHoe();
 
-	IItemDefinition certusQuartzShovel();
+    IItemDefinition certusQuartzShovel();
 
-	IItemDefinition certusQuartzPick();
+    IItemDefinition certusQuartzPick();
 
-	IItemDefinition certusQuartzSword();
+    IItemDefinition certusQuartzSword();
 
-	IItemDefinition certusQuartzWrench();
+    IItemDefinition certusQuartzWrench();
 
-	IItemDefinition certusQuartzKnife();
+    IItemDefinition certusQuartzKnife();
 
-	IItemDefinition netherQuartzAxe();
+    IItemDefinition netherQuartzAxe();
 
-	IItemDefinition netherQuartzHoe();
+    IItemDefinition netherQuartzHoe();
 
-	IItemDefinition netherQuartzShovel();
+    IItemDefinition netherQuartzShovel();
 
-	IItemDefinition netherQuartzPick();
+    IItemDefinition netherQuartzPick();
 
-	IItemDefinition netherQuartzSword();
+    IItemDefinition netherQuartzSword();
 
-	IItemDefinition netherQuartzWrench();
+    IItemDefinition netherQuartzWrench();
 
-	IItemDefinition netherQuartzKnife();
+    IItemDefinition netherQuartzKnife();
 
-	IItemDefinition entropyManipulator();
+    IItemDefinition entropyManipulator();
 
-	IItemDefinition wirelessTerminal();
+    IItemDefinition wirelessTerminal();
 
-	IItemDefinition biometricCard();
+    IItemDefinition biometricCard();
 
-	IItemDefinition chargedStaff();
+    IItemDefinition chargedStaff();
 
-	IItemDefinition massCannon();
+    IItemDefinition massCannon();
 
-	IItemDefinition memoryCard();
+    IItemDefinition memoryCard();
 
-	IItemDefinition networkTool();
+    IItemDefinition networkTool();
 
-	IItemDefinition portableCell();
+    /**
+     * @see IItems#portableCell1k()
+     * @return
+     */
+    @Deprecated
+    IItemDefinition portableCell();
 
-	IItemDefinition cellCreative();
+    IItemDefinition portableCell1k();
 
-	IItemDefinition viewCell();
+    IItemDefinition portableCell4k();
 
-	IItemDefinition cell1k();
+    IItemDefinition portableCell16k();
 
-	IItemDefinition cell4k();
+    IItemDefinition portableCell64k();
 
-	IItemDefinition cell16k();
+    IItemDefinition cellCreative();
 
-	IItemDefinition cell64k();
+    IItemDefinition viewCell();
 
-	IItemDefinition fluidCell1k();
+    IItemDefinition cell1k();
 
-	IItemDefinition fluidCell4k();
+    IItemDefinition cell4k();
 
-	IItemDefinition fluidCell16k();
+    IItemDefinition cell16k();
 
-	IItemDefinition fluidCell64k();
+    IItemDefinition cell64k();
 
-	IItemDefinition spatialCell2();
+    IItemDefinition fluidCell1k();
 
-	IItemDefinition spatialCell16();
+    IItemDefinition fluidCell4k();
 
-	IItemDefinition spatialCell128();
+    IItemDefinition fluidCell16k();
 
-	IItemDefinition facade();
+    IItemDefinition fluidCell64k();
 
-	IItemDefinition certusCrystalSeed();
+    IItemDefinition spatialCell2();
 
-	IItemDefinition fluixCrystalSeed();
+    IItemDefinition spatialCell16();
 
-	IItemDefinition netherQuartzSeed();
+    IItemDefinition spatialCell128();
 
-	IItemDefinition dummyFluidItem();
+    IItemDefinition facade();
 
-	// rv1
-	IItemDefinition encodedPattern();
+    IItemDefinition certusCrystalSeed();
 
-	IItemDefinition colorApplicator();
+    IItemDefinition fluixCrystalSeed();
 
-	AEColoredItemDefinition coloredPaintBall();
+    IItemDefinition netherQuartzSeed();
 
-	AEColoredItemDefinition coloredLumenPaintBall();
+    IItemDefinition dummyFluidItem();
+
+    // rv1
+    IItemDefinition encodedPattern();
+
+    IItemDefinition colorApplicator();
+
+    AEColoredItemDefinition coloredPaintBall();
+
+    AEColoredItemDefinition coloredLumenPaintBall();
 }

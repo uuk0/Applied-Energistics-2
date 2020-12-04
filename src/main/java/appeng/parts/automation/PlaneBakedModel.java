@@ -18,104 +18,105 @@
 
 package appeng.parts.automation;
 
-
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+
 import javax.annotation.Nullable;
 
 import com.google.common.collect.ImmutableList;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.client.renderer.model.BakedQuad;
-import net.minecraft.client.renderer.model.IBakedModel;
 import net.minecraft.client.renderer.model.ItemOverrideList;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.renderer.vertex.VertexFormat;
 import net.minecraft.util.Direction;
+import net.minecraftforge.client.model.data.IDynamicBakedModel;
+import net.minecraftforge.client.model.data.IModelData;
 
 import appeng.client.render.cablebus.CubeBuilder;
-
 
 /**
  * Built-in model for annihilation planes that supports connected textures.
  */
-public class PlaneBakedModel implements IBakedModel
-{
+public class PlaneBakedModel implements IDynamicBakedModel {
 
-	private final TextureAtlasSprite frontTexture;
+    private static final PlaneConnections DEFAULT_PERMUTATION = PlaneConnections.of(false, false, false, false);
 
-	private final List<BakedQuad> quads;
+    private final TextureAtlasSprite frontTexture;
 
-	PlaneBakedModel( TextureAtlasSprite frontTexture, TextureAtlasSprite sidesTexture, TextureAtlasSprite backTexture, PlaneConnections connections )
-	{
-		this.frontTexture = frontTexture;
+    private final Map<PlaneConnections, List<BakedQuad>> quads;
 
-		List<BakedQuad> quads = new ArrayList<>( 4 * 6 );
+    PlaneBakedModel(TextureAtlasSprite frontTexture, TextureAtlasSprite sidesTexture, TextureAtlasSprite backTexture) {
+        this.frontTexture = frontTexture;
 
-		CubeBuilder builder = new CubeBuilder( quads );
+        quads = new HashMap<>(PlaneConnections.PERMUTATIONS.size());
+        // Create all possible permutations (16)
+        for (PlaneConnections permutation : PlaneConnections.PERMUTATIONS) {
+            List<BakedQuad> quads = new ArrayList<>(4 * 6);
 
-		builder.setTextures( sidesTexture, sidesTexture, frontTexture, backTexture, sidesTexture, sidesTexture );
+            CubeBuilder builder = new CubeBuilder(quads);
 
-		// Keep the orientation of the X axis in mind here. When looking at a quad facing north from the front,
-		// The X-axis points left
-		int minX = connections.isRight() ? 0 : 1;
-		int maxX = connections.isLeft() ? 16 : 15;
-		int minY = connections.isDown() ? 0 : 1;
-		int maxY = connections.isUp() ? 16 : 15;
+            builder.setTextures(sidesTexture, sidesTexture, frontTexture, backTexture, sidesTexture, sidesTexture);
 
-		builder.addCube( minX, minY, 0, maxX, maxY, 1 );
+            // Keep the orientation of the X axis in mind here. When looking at a quad
+            // facing north from the front,
+            // The X-axis points left
+            int minX = permutation.isRight() ? 0 : 1;
+            int maxX = permutation.isLeft() ? 16 : 15;
+            int minY = permutation.isDown() ? 0 : 1;
+            int maxY = permutation.isUp() ? 16 : 15;
 
-		this.quads = ImmutableList.copyOf( quads );
-	}
+            builder.addCube(minX, minY, 0, maxX, maxY, 1);
 
-	@Override
-	public List<BakedQuad> getQuads( @Nullable BlockState state, @Nullable Direction side, Random rand )
-	{
-		if( side == null )
-		{
-			return this.quads;
-		}
-		else
-		{
-			return Collections.emptyList();
-		}
-	}
+            this.quads.put(permutation, ImmutableList.copyOf(quads));
+        }
+    }
 
-	@Override
-	public boolean isAmbientOcclusion()
-	{
-		return false;
-	}
+    @Override
+    public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, Random rand,
+            IModelData modelData) {
+        if (side == null) {
+            PlaneConnections connections = DEFAULT_PERMUTATION;
+            if (modelData instanceof PlaneModelData) {
+                connections = ((PlaneModelData) modelData).getConnections();
+            }
+            return this.quads.get(connections);
+        } else {
+            return Collections.emptyList();
+        }
+    }
 
-	@Override
-	public boolean isGui3d()
-	{
-		return false;
-	}
+    @Override
+    public boolean isAmbientOcclusion() {
+        return false;
+    }
 
-	@Override
-	public boolean func_230044_c_()
-	{
-		return false;//TODO
-	}
+    @Override
+    public boolean isGui3d() {
+        return false;
+    }
 
-	@Override
-	public boolean isBuiltInRenderer()
-	{
-		return false;
-	}
+    @Override
+    public boolean isSideLit() {
+        return false;// TODO
+    }
 
-	@Override
-	public TextureAtlasSprite getParticleTexture()
-	{
-		return this.frontTexture;
-	}
+    @Override
+    public boolean isBuiltInRenderer() {
+        return false;
+    }
 
-	@Override
-	public ItemOverrideList getOverrides()
-	{
-		return ItemOverrideList.EMPTY;
-	}
+    @Override
+    public TextureAtlasSprite getParticleTexture() {
+        return this.frontTexture;
+    }
+
+    @Override
+    public ItemOverrideList getOverrides() {
+        return ItemOverrideList.EMPTY;
+    }
 }

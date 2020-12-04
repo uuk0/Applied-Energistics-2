@@ -18,58 +18,58 @@
 
 package appeng.block.storage;
 
-
 import net.minecraft.util.IStringSerializable;
 
+import appeng.api.storage.cells.CellState;
 
 /**
  * Describes the different states a single slot of a BlockDrive can be in in terms of rendering.
  */
-public enum DriveSlotState implements IStringSerializable
-{
+public enum DriveSlotState implements IStringSerializable {
 
-	// No cell in slot
-	EMPTY( "empty" ),
+    // No cell in slot
+    EMPTY("empty"),
 
-	// Cell in slot, but unpowered
-	OFFLINE( "offline" ),
+    // Cell in slot, but unpowered
+    OFFLINE("offline"),
 
-	// Online and free space
-	ONLINE( "online" ),
+    // Online and free space
+    ONLINE("online"),
 
-	// Types full, space left
-	TYPES_FULL( "types_full" ),
+    // Online and not space
+    NOT_EMPTY("not_empty"),
 
-	// Completely full
-	FULL( "full" );
+    // Types full, space left
+    TYPES_FULL("types_full"),
 
-	private final String name;
+    // Completely full
+    FULL("full");
 
-	DriveSlotState( String name )
-	{
-		this.name = name;
-	}
+    private final String name;
 
-	@Override
-	public String getName()
-	{
-		return this.name;
-	}
+    DriveSlotState(String name) {
+        this.name = name;
+    }
 
-	public static DriveSlotState fromCellStatus( int cellStatus )
-	{
-		switch( cellStatus )
-		{
-			default:
-			case 0:
-				return DriveSlotState.EMPTY;
-			case 1:
-				return DriveSlotState.ONLINE;
-			case 2:
-				return DriveSlotState.TYPES_FULL;
-			case 3:
-				return DriveSlotState.FULL;
-		}
-	}
+    @Override
+    public String getString() {
+        return this.name;
+    }
+
+    public static DriveSlotState fromCellStatus(CellState cellStatus) {
+        switch (cellStatus) {
+            default:
+            case ABSENT:
+                return DriveSlotState.EMPTY;
+            case EMPTY:
+                return DriveSlotState.ONLINE;
+            case NOT_EMPTY:
+                return DriveSlotState.NOT_EMPTY;
+            case TYPES_FULL:
+                return DriveSlotState.TYPES_FULL;
+            case FULL:
+                return DriveSlotState.FULL;
+        }
+    }
 
 }

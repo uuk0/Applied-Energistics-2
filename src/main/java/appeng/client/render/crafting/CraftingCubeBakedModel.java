@@ -18,296 +18,269 @@
 
 package appeng.client.render.crafting;
 
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Random;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.client.renderer.model.BakedQuad;
-import net.minecraft.client.renderer.block.model.IBakedModel;
-import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
-import net.minecraft.client.renderer.block.model.ItemOverrideList;
+import net.minecraft.client.renderer.model.ItemOverrideList;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.renderer.vertex.VertexFormat;
 import net.minecraft.util.Direction;
-import net.minecraftforge.common.property.IExtendedBlockState;
+import net.minecraftforge.client.model.data.IDynamicBakedModel;
+import net.minecraftforge.client.model.data.IModelData;
 
-import appeng.block.crafting.AbstractCraftingUnitBlock;
 import appeng.client.render.cablebus.CubeBuilder;
-
+import appeng.tile.crafting.CraftingCubeModelData;
+import appeng.util.Platform;
 
 /**
- * The base model for baked models used by components of the crafting cube multi-block in it's formed state.
- * Primarily this base class handles adding the "ring" that frames the multi-block structure and delegates
- * rendering of the "inner" part of each block to the subclasses of this class.
+ * The base model for baked models used by components of the crafting cube multi-block in it's formed state. Primarily
+ * this base class handles adding the "ring" that frames the multi-block structure and delegates rendering of the
+ * "inner" part of each block to the subclasses of this class.
  */
-abstract class CraftingCubeBakedModel implements IBakedModel
-{
+abstract class CraftingCubeBakedModel implements IDynamicBakedModel {
 
-	private final VertexFormat format;
+    private final TextureAtlasSprite ringCorner;
 
-	private final TextureAtlasSprite ringCorner;
+    private final TextureAtlasSprite ringHor;
 
-	private final TextureAtlasSprite ringHor;
+    private final TextureAtlasSprite ringVer;
 
-	private final TextureAtlasSprite ringVer;
+    CraftingCubeBakedModel(TextureAtlasSprite ringCorner, TextureAtlasSprite ringHor, TextureAtlasSprite ringVer) {
+        this.ringCorner = ringCorner;
+        this.ringHor = ringHor;
+        this.ringVer = ringVer;
+    }
 
-	CraftingCubeBakedModel( VertexFormat format, TextureAtlasSprite ringCorner, TextureAtlasSprite ringHor, TextureAtlasSprite ringVer )
-	{
-		this.format = format;
-		this.ringCorner = ringCorner;
-		this.ringHor = ringHor;
-		this.ringVer = ringVer;
-	}
+    @Nonnull
+    @Override
+    public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, @Nonnull Random rand,
+            @Nonnull IModelData extraData) {
+        if (side == null) {
+            return Collections.emptyList(); // No generic quads for this model
+        }
 
-	@Override
-	public List<BakedQuad> getQuads( @Nullable BlockState state, @Nullable Direction side, long rand )
-	{
+        EnumSet<Direction> connections = getConnections(extraData);
 
-		if( side == null )
-		{
-			return Collections.emptyList(); // No generic quads for this model
-		}
+        List<BakedQuad> quads = new ArrayList<>();
+        CubeBuilder builder = new CubeBuilder(quads);
 
-		EnumSet<Direction> connections = getConnections( state );
+        builder.setDrawFaces(EnumSet.of(side));
 
-		List<BakedQuad> quads = new ArrayList<>();
-		CubeBuilder builder = new CubeBuilder( this.format, quads );
+        // Add the quads for the ring that frames the entire multi-block structure
+        this.addRing(builder, side, connections);
 
-		builder.setDrawFaces( EnumSet.of( side ) );
+        // Calculate the bounds of the "inner" block that is framed by the border drawn
+        // above
+        float x2 = connections.contains(Direction.EAST) ? 16 : 13.01f;
+        float x1 = connections.contains(Direction.WEST) ? 0 : 2.99f;
 
-		// Add the quads for the ring that frames the entire multi-block structure
-		this.addRing( builder, side, connections );
+        float y2 = connections.contains(Direction.UP) ? 16 : 13.01f;
+        float y1 = connections.contains(Direction.DOWN) ? 0 : 2.99f;
 
-		// Calculate the bounds of the "inner" block that is framed by the border drawn above
-		float x2 = connections.contains( Direction.EAST ) ? 16 : 13.01f;
-		float x1 = connections.contains( Direction.WEST ) ? 0 : 2.99f;
+        float z2 = connections.contains(Direction.SOUTH) ? 16 : 13.01f;
+        float z1 = connections.contains(Direction.NORTH) ? 0 : 2.99f;
 
-		float y2 = connections.contains( Direction.UP ) ? 16 : 13.01f;
-		float y1 = connections.contains( Direction.DOWN ) ? 0 : 2.99f;
+        // On the axis of the side that we're currently drawing, extend the dimensions
+        // out to the outer face of the block
+        switch (side) {
+            case DOWN:
+            case UP:
+                y1 = 0;
+                y2 = 16;
+                break;
+            case NORTH:
+            case SOUTH:
+                z1 = 0;
+                z2 = 16;
+                break;
+            case WEST:
+            case EAST:
+                x1 = 0;
+                x2 = 16;
+                break;
+        }
 
-		float z2 = connections.contains( Direction.SOUTH ) ? 16 : 13.01f;
-		float z1 = connections.contains( Direction.NORTH ) ? 0 : 2.99f;
+        this.addInnerCube(side, state, extraData, builder, x1, y1, z1, x2, y2, z2);
 
-		// On the axis of the side that we're currently drawing, extend the dimensions
-		// out to the outer face of the block
-		switch( side )
-		{
-			case DOWN:
-			case UP:
-				y1 = 0;
-				y2 = 16;
-				break;
-			case NORTH:
-			case SOUTH:
-				z1 = 0;
-				z2 = 16;
-				break;
-			case WEST:
-			case EAST:
-				x1 = 0;
-				x2 = 16;
-				break;
-		}
+        return quads;
+    }
 
-		this.addInnerCube( side, state, builder, x1, y1, z1, x2, y2, z2 );
+    private void addRing(CubeBuilder builder, Direction side, EnumSet<Direction> connections) {
+        // Fill in the corners
+        builder.setTexture(this.ringCorner);
+        this.addCornerCap(builder, connections, side, Direction.UP, Direction.EAST, Direction.NORTH);
+        this.addCornerCap(builder, connections, side, Direction.UP, Direction.EAST, Direction.SOUTH);
+        this.addCornerCap(builder, connections, side, Direction.UP, Direction.WEST, Direction.NORTH);
+        this.addCornerCap(builder, connections, side, Direction.UP, Direction.WEST, Direction.SOUTH);
+        this.addCornerCap(builder, connections, side, Direction.DOWN, Direction.EAST, Direction.NORTH);
+        this.addCornerCap(builder, connections, side, Direction.DOWN, Direction.EAST, Direction.SOUTH);
+        this.addCornerCap(builder, connections, side, Direction.DOWN, Direction.WEST, Direction.NORTH);
+        this.addCornerCap(builder, connections, side, Direction.DOWN, Direction.WEST, Direction.SOUTH);
 
-		return quads;
-	}
+        // Fill in the remaining stripes of the face
+        for (Direction a : Direction.values()) {
+            if (a == side || a == side.getOpposite()) {
+                continue;
+            }
 
-	private void addRing( CubeBuilder builder, @Nullable Direction side, EnumSet<Direction> connections )
-	{
-		// Fill in the corners
-		builder.setTexture( this.ringCorner );
-		this.addCornerCap( builder, connections, side, Direction.UP, Direction.EAST, Direction.NORTH );
-		this.addCornerCap( builder, connections, side, Direction.UP, Direction.EAST, Direction.SOUTH );
-		this.addCornerCap( builder, connections, side, Direction.UP, Direction.WEST, Direction.NORTH );
-		this.addCornerCap( builder, connections, side, Direction.UP, Direction.WEST, Direction.SOUTH );
-		this.addCornerCap( builder, connections, side, Direction.DOWN, Direction.EAST, Direction.NORTH );
-		this.addCornerCap( builder, connections, side, Direction.DOWN, Direction.EAST, Direction.SOUTH );
-		this.addCornerCap( builder, connections, side, Direction.DOWN, Direction.WEST, Direction.NORTH );
-		this.addCornerCap( builder, connections, side, Direction.DOWN, Direction.WEST, Direction.SOUTH );
+            // Select the horizontal or vertical ring texture depending on which side we're
+            // filling in
+            if ((side.getAxis() != Direction.Axis.Y)
+                    && (a == Direction.NORTH || a == Direction.EAST || a == Direction.WEST || a == Direction.SOUTH)) {
+                builder.setTexture(this.ringVer);
+            } else if (side.getAxis() == Direction.Axis.Y && (a == Direction.EAST || a == Direction.WEST)) {
+                builder.setTexture(this.ringVer);
+            } else {
+                builder.setTexture(this.ringHor);
+            }
 
-		// Fill in the remaining stripes of the face
-		for( Direction a : Direction.values() )
-		{
-			if( a == side || a == side.getOpposite() )
-			{
-				continue;
-			}
+            // If there's an adjacent crafting cube block on side a, then the core of the
+            // block already extends
+            // fully to this side. So only bother drawing the stripe, if there's no
+            // connection.
+            if (!connections.contains(a)) {
+                // Note that since we're drawing something that "looks" 2-dimensional,
+                // two of the following will always be 0 and 16.
+                float x1 = 0, y1 = 0, z1 = 0, x2 = 16, y2 = 16, z2 = 16;
 
-			// Select the horizontal or vertical ring texture depending on which side we're filling in
-			if( ( side.getAxis() != Direction.Axis.Y ) && ( a == Direction.NORTH || a == Direction.EAST || a == Direction.WEST || a == Direction.SOUTH ) )
-			{
-				builder.setTexture( this.ringVer );
-			}
-			else if( side.getAxis() == Direction.Axis.Y && ( a == Direction.EAST || a == Direction.WEST ) )
-			{
-				builder.setTexture( this.ringVer );
-			}
-			else
-			{
-				builder.setTexture( this.ringHor );
-			}
+                switch (a) {
+                    case DOWN:
+                        y1 = 0;
+                        y2 = 3;
+                        break;
+                    case UP:
+                        y1 = 13.0f;
+                        y2 = 16;
+                        break;
+                    case WEST:
+                        x1 = 0;
+                        x2 = 3;
+                        break;
+                    case EAST:
+                        x1 = 13;
+                        x2 = 16;
+                        break;
+                    case NORTH:
+                        z1 = 0;
+                        z2 = 3;
+                        break;
+                    case SOUTH:
+                        z1 = 13;
+                        z2 = 16;
+                        break;
+                }
 
-			// If there's an adjacent crafting cube block on side a, then the core of the block already extends
-			// fully to this side. So only bother drawing the stripe, if there's no connection.
-			if( !connections.contains( a ) )
-			{
-				// Note that since we're drawing something that "looks" 2-dimensional,
-				// two of the following will always be 0 and 16.
-				float x1 = 0, y1 = 0, z1 = 0, x2 = 16, y2 = 16, z2 = 16;
+                // Constraint the stripe in the two directions perpendicular to a in case there
+                // has been a corner
+                // drawn in those directions. Since a corner is drawn if the three touching
+                // faces dont have adjacent
+                // crafting cube blocks, we'd have to check for a, side, and the perpendicular
+                // direction. But in this
+                // block, we've already checked for side (due to face culling) and a (see
+                // above).
+                Direction perpendicular = Platform.rotateAround(a, side);
+                for (Direction cornerCandidate : EnumSet.of(perpendicular, perpendicular.getOpposite())) {
+                    if (!connections.contains(cornerCandidate)) {
+                        // There's a cap in this direction
+                        switch (cornerCandidate) {
+                            case DOWN:
+                                y1 = 3;
+                                break;
+                            case UP:
+                                y2 = 13;
+                                break;
+                            case NORTH:
+                                z1 = 3;
+                                break;
+                            case SOUTH:
+                                z2 = 13;
+                                break;
+                            case WEST:
+                                x1 = 3;
+                                break;
+                            case EAST:
+                                x2 = 13;
+                                break;
+                        }
+                    }
+                }
 
-				switch( a )
-				{
-					case DOWN:
-						y1 = 0;
-						y2 = 3;
-						break;
-					case UP:
-						y1 = 13.0f;
-						y2 = 16;
-						break;
-					case WEST:
-						x1 = 0;
-						x2 = 3;
-						break;
-					case EAST:
-						x1 = 13;
-						x2 = 16;
-						break;
-					case NORTH:
-						z1 = 0;
-						z2 = 3;
-						break;
-					case SOUTH:
-						z1 = 13;
-						z2 = 16;
-						break;
-				}
+                builder.addCube(x1, y1, z1, x2, y2, z2);
+            }
+        }
+    }
 
-				// Constraint the stripe in the two directions perpendicular to a in case there has been a corner
-				// drawn in those directions. Since a corner is drawn if the three touching faces dont have adjacent
-				// crafting cube blocks, we'd have to check for a, side, and the perpendicular direction. But in this
-				// block, we've already checked for side (due to face culling) and a (see above).
-				Direction perpendicular = a.rotateAround( side.getAxis() );
-				for( Direction cornerCandidate : EnumSet.of( perpendicular, perpendicular.getOpposite() ) )
-				{
-					if( !connections.contains( cornerCandidate ) )
-					{
-						// There's a cap in this direction
-						switch( cornerCandidate )
-						{
-							case DOWN:
-								y1 = 3;
-								break;
-							case UP:
-								y2 = 13;
-								break;
-							case NORTH:
-								z1 = 3;
-								break;
-							case SOUTH:
-								z2 = 13;
-								break;
-							case WEST:
-								x1 = 3;
-								break;
-							case EAST:
-								x2 = 13;
-								break;
-						}
-					}
-				}
+    /**
+     * Adds a 3x3x3 corner cap to the cube builder if there are no adjacent crafting cubes on that corner.
+     */
+    private void addCornerCap(CubeBuilder builder, EnumSet<Direction> connections, Direction side, Direction down,
+            Direction west, Direction north) {
+        if (connections.contains(down) || connections.contains(west) || connections.contains(north)) {
+            return;
+        }
 
-				builder.addCube( x1, y1, z1, x2, y2, z2 );
-			}
-		}
-	}
+        // Only add faces for sides that can actually be seen (the outside of the cube)
+        if (side != down && side != west && side != north) {
+            return;
+        }
 
-	/**
-	 * Adds a 3x3x3 corner cap to the cube builder if there are no adjacent crafting cubes on that corner.
-	 */
-	private void addCornerCap( CubeBuilder builder, EnumSet<Direction> connections, Direction side, Direction down, Direction west, Direction north )
-	{
-		if( connections.contains( down ) || connections.contains( west ) || connections.contains( north ) )
-		{
-			return;
-		}
+        float x1 = (west == Direction.WEST ? 0 : 13);
+        float y1 = (down == Direction.DOWN ? 0 : 13);
+        float z1 = (north == Direction.NORTH ? 0 : 13);
+        float x2 = (west == Direction.WEST ? 3 : 16);
+        float y2 = (down == Direction.DOWN ? 3 : 16);
+        float z2 = (north == Direction.NORTH ? 3 : 16);
+        builder.addCube(x1, y1, z1, x2, y2, z2);
+    }
 
-		// Only add faces for sides that can actually be seen (the outside of the cube)
-		if( side != down && side != west && side != north )
-		{
-			return;
-		}
+    // Retrieve the cube connection state from the block state
+    // If none is present, just assume there are no adjacent crafting cube blocks
+    private static EnumSet<Direction> getConnections(IModelData modelData) {
+        if (!(modelData instanceof CraftingCubeModelData)) {
+            return EnumSet.noneOf(Direction.class);
+        }
 
-		float x1 = ( west == Direction.WEST ? 0 : 13 );
-		float y1 = ( down == Direction.DOWN ? 0 : 13 );
-		float z1 = ( north == Direction.NORTH ? 0 : 13 );
-		float x2 = ( west == Direction.WEST ? 3 : 16 );
-		float y2 = ( down == Direction.DOWN ? 3 : 16 );
-		float z2 = ( north == Direction.NORTH ? 3 : 16 );
-		builder.addCube( x1, y1, z1, x2, y2, z2 );
-	}
+        return ((CraftingCubeModelData) modelData).getConnections();
+    }
 
-	// Retrieve the cube connection state from the block state
-	// If none is present, just assume there are no adjacent crafting cube blocks
-	private static EnumSet<Direction> getConnections( @Nullable BlockState state )
-	{
-		if( !( state instanceof IExtendedBlockState ) )
-		{
-			return EnumSet.noneOf( Direction.class );
-		}
+    protected abstract void addInnerCube(Direction facing, BlockState state, IModelData modelData, CubeBuilder builder,
+            float x1, float y1, float z1, float x2, float y2, float z2);
 
-		IExtendedBlockState extState = (IExtendedBlockState) state;
-		CraftingCubeState cubeState = extState.getValue( AbstractCraftingUnitBlock.STATE );
-		if( cubeState == null )
-		{
-			return EnumSet.noneOf( Direction.class );
-		}
+    @Override
+    public boolean isAmbientOcclusion() {
+        return false;
+    }
 
-		return cubeState.getConnections();
-	}
+    @Override
+    public boolean isGui3d() {
+        return false;
+    }
 
-	protected abstract void addInnerCube( Direction facing, BlockState state, CubeBuilder builder, float x1, float y1, float z1, float x2, float y2, float z2 );
+    @Override
+    public boolean isBuiltInRenderer() {
+        return false;
+    }
 
-	@Override
-	public boolean isAmbientOcclusion()
-	{
-		return false;
-	}
+    @Override
+    public TextureAtlasSprite getParticleTexture() {
+        return this.ringCorner;
+    }
 
-	@Override
-	public boolean isGui3d()
-	{
-		return false;
-	}
+    @Override
+    public boolean isSideLit() {
+        return false;
+    }
 
-	@Override
-	public boolean isBuiltInRenderer()
-	{
-		return false;
-	}
+    @Override
+    public ItemOverrideList getOverrides() {
+        return ItemOverrideList.EMPTY;
+    }
 
-	@Override
-	public TextureAtlasSprite getParticleTexture()
-	{
-		return this.ringCorner;
-	}
-
-	@Override
-	public ItemCameraTransforms getItemCameraTransforms()
-	{
-		return ItemCameraTransforms.DEFAULT;
-	}
-
-	@Override
-	public ItemOverrideList getOverrides()
-	{
-		return ItemOverrideList.EMPTY;
-	}
 }
